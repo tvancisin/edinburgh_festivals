@@ -15,10 +15,7 @@
 
   $: circleX = width / 2;
   $: circleY = height / 2;
-  $: circleRadius = Math.max(
-    0,
-    Math.min(width / 2 - 40, height / 2 - 50),
-  );
+  $: circleRadius = Math.max(0, Math.min(width / 2 - 40, height / 2 - 50));
 
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
@@ -62,12 +59,7 @@
     bind:clientWidth={width}
     bind:clientHeight={height}
   ></div>
-  <svg
-    class="panel-overlay"
-    aria-hidden="true"
-    {width}
-    {height}
-  >
+  <svg class="panel-overlay" aria-hidden="true" {width} {height}>
     <defs>
       <mask
         id="map-window-mask"

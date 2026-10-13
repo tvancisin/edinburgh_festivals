@@ -113,5 +113,4 @@
   .explore-button:hover {
     background: #004f49;
   }
-
 </style>
