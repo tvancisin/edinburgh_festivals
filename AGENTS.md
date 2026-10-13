@@ -15,7 +15,7 @@
 ## Implementation conventions
 
 - Use Svelte's legacy reactive syntax, including `$:`; do not introduce runes.
-- Render visualisations declaratively in Svelte. Keep SVG and DOM rendering in component markup; use D3 for `csv`/`json` loading, parsing, transformations, scales, layouts, and paths.
+- Render visualisations declaratively in Svelte. Keep SVG and DOM rendering in component markup; use D3 for `csv`/`json` loading, parsing, transformations, scales, layouts, and paths. Always import all of D3 as a namespace (`import * as d3 from "d3"`) and use namespaced functions such as `d3.arc()` and `d3.scaleLinear()`.
 - Prefer SVG. Give each visualisation its own component and place shared, typed data and formatting helpers in `src/lib`.
 - In every visualisation component, bind the rendered container's current dimensions with `bind:clientWidth={width}` and `bind:clientHeight={height}`. Use these local `width` and `height` values to calculate responsive layout, scales, and SVG dimensions; do not rely on fixed viewport or screen measurements. Do not use SVG `viewBox` or viewport-based sizing for responsiveness.
 - Use plain component-scoped CSS: keep component-specific rules in that component's `<style>` block, and reserve `app.css` for global resets, typography defaults, and shared design tokens. Use US English in interface copy and documentation.

@@ -1,7 +1,8 @@
 <script>
+  import Map from "./lib/Map.svelte";
+
   let showExplorer = false;
-  let width = 0;
-  let height = 0;
+  const basePath = import.meta.env.BASE_URL;
 </script>
 
 <svelte:head>
@@ -12,15 +13,18 @@
   />
 </svelte:head>
 
+<a class="logo" href={basePath} aria-label="Edinburgh Festivals home">
+  <img
+    src={`${basePath}/img/efi_dlm_logo_black.svg`}
+    alt="Edinburgh Festivals International"
+  />
+</a>
+
 {#if !showExplorer}
-  <main id="main-content">
+  <main id="main-content" class="landing">
     <section class="intro" aria-labelledby="page-title">
       <p class="eyebrow">Festival data explorer</p>
-      <h1 id="page-title">Edinburgh festivals, in context.</h1>
-      <!-- <p class="summary">
-        Explore clearly sourced data about Edinburgh's festivals from 2012
-        onward.
-      </p> -->
+      <h1 id="page-title">Edinburgh Festivals</h1>
       <button
         class="explore-button"
         type="button"
@@ -31,8 +35,8 @@
     </section>
   </main>
 {:else}
-  <main id="main-content" bind:clientWidth={width} bind:clientHeight={height}>
-    <svg aria-hidden="true" {height} {width}></svg>
+  <main id="main-content">
+    <Map />
   </main>
 {/if}
 
@@ -43,8 +47,29 @@
     overflow: hidden;
   }
 
+  .landing {
+    display: flex;
+    align-items: center;
+  }
+
+  .logo {
+    position: fixed;
+    z-index: 1100;
+    top: 10px;
+    left: 10px;
+    display: block;
+    height: 60px;
+  }
+
+  .logo img {
+    display: block;
+    width: auto;
+    height: 60px;
+  }
+
   .intro {
     max-width: 48rem;
+    width: 100%;
     padding: clamp(4rem, 12vw, 9rem) clamp(1rem, 4vw, 2rem);
   }
 
@@ -87,10 +112,6 @@
 
   .explore-button:hover {
     background: #004f49;
-  }
-
-  svg {
-    display: block;
   }
 
 </style>
