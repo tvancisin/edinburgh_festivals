@@ -119,7 +119,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     paint-order: stroke;
-    stroke: #fff;
+    stroke: #F8F7F4;
     stroke-linejoin: round;
     stroke-width: 4px;
   }

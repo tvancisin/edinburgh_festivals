@@ -81,7 +81,7 @@
         <circle cx={circleX} cy={circleY} r={circleRadius} fill="black" />
       </mask>
     </defs>
-    <rect {width} {height} fill="#fff" mask="url(#map-window-mask)" />
+    <rect {width} {height} fill="#F8F7F4" mask="url(#map-window-mask)" />
     <FestivalTimeline {circleX} {circleY} {circleRadius} />
   </svg>
 </section>
