@@ -16,14 +16,14 @@
 <a class="logo" href={basePath} aria-label="Edinburgh Festivals home">
   <img
     src={`${basePath}/img/efi_dlm_logo_black.svg`}
-    alt="Edinburgh Festivals International"
+    alt="Edinburgh Futures Institute logo"
   />
 </a>
 
 {#if !showExplorer}
   <main id="main-content" class="landing">
     <section class="intro" aria-labelledby="page-title">
-      <p class="eyebrow">Festival data explorer</p>
+      <!-- <p class="eyebrow">Festival data explorer</p> -->
       <h1 id="page-title">Edinburgh Festivals</h1>
       <button
         class="explore-button"
@@ -83,23 +83,17 @@
   }
 
   h1 {
-    max-width: 12ch;
+    max-width: 10ch;
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: Inter;
     font-size: clamp(2.5rem, 8vw, 5.5rem);
-    font-weight: 400;
-    letter-spacing: -0.045em;
-    line-height: 0.98;
-  }
-
-  .summary {
-    max-width: 38rem;
-    margin: 1.75rem 0 0;
-    font-size: clamp(1.125rem, 2vw, 1.375rem);
-    line-height: 1.5;
+    font-weight: 650;
+    letter-spacing: -0.05em;
+    line-height: 0.9;
   }
 
   .explore-button {
+    text-transform: uppercase;
     margin-top: 2rem;
     padding: 0.75rem 1.125rem;
     border: 0;

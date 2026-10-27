@@ -174,8 +174,9 @@
 
   .month-label {
     fill: #252525;
-    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.625rem;
+    font-family: Inter;
+    letter-spacing: -0.05em;
+    font-size: 12px;
     font-weight: 700;
     paint-order: stroke;
     stroke: #fff;
@@ -190,7 +191,8 @@
   .festival-label {
     fill: #252525;
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.75rem;
+    letter-spacing: -0.05em;
+    font-size: 12px;
     font-weight: 700;
     paint-order: stroke;
     stroke: #f8f7f4;
