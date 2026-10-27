@@ -3,7 +3,10 @@
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
   import FestivalTimeline from "./FestivalTimeline.svelte";
-  import { festivals } from "../../utils.js";
+  import type { FestivalDataByFestival } from "./utils/festivalData";
+  import { festivals } from "./utils/festivals.js";
+
+  export let festivalData: FestivalDataByFestival | undefined;
 
   let mapElement: HTMLDivElement;
   let map: L.Map | undefined;
@@ -59,7 +62,10 @@
     bind:clientWidth={width}
     bind:clientHeight={height}
   ></div>
-  <svg class="panel-overlay" aria-hidden="true" {width} {height}>
+  <aside class="timeline-legend" aria-label="Festival timeline help">
+    <p>Click a festival arc to explore the data.</p>
+  </aside>
+  <svg class="panel-overlay" role="group" aria-label="Festival timeline" {width} {height}>
     <defs>
       <mask
         id="map-window-mask"
@@ -74,7 +80,7 @@
       </mask>
     </defs>
     <rect {width} {height} fill="#F8F7F4" mask="url(#map-window-mask)" />
-    <FestivalTimeline {circleX} {circleY} {circleRadius} />
+    <FestivalTimeline {circleX} {circleY} {circleRadius} {festivalData} />
   </svg>
 </section>
 
@@ -100,6 +106,36 @@
     inset: 0;
     display: block;
     pointer-events: none;
+  }
+
+  .timeline-legend {
+    position: absolute;
+    z-index: 2;
+    top: 1rem;
+    right: 1rem;
+    max-width: 14rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #252525;
+    background: #f8f7f4;
+    color: #252525;
+    font-size: 0.875rem;
+    font-weight: 700;
+    pointer-events: none;
+    border-radius: 0.25rem;
+  }
+
+  .timeline-legend p {
+    margin: 0;
+  }
+
+  @media (max-width: 42rem) {
+    .timeline-legend {
+      top: calc(clamp(2.5rem, 8vw, 3.75rem) + 1rem);
+      right: 0.5rem;
+      max-width: min(13rem, calc(100% - 1rem));
+      padding: 0.625rem 0.75rem;
+      font-size: 0.75rem;
+    }
   }
 
   .visually-hidden {

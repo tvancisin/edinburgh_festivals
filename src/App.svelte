@@ -1,8 +1,32 @@
-<script>
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { loadFestivalDataByFestival } from "./lib/utils/festivalData";
   import Map from "./lib/Map.svelte";
 
+  type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
+
   let showExplorer = false;
+  let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
+  let festivalDataStatus: FestivalDataStatus = "loading";
+  let festivalDataError = "";
   const basePath = import.meta.env.BASE_URL;
+
+  onMount(() => {
+    void fetchFestivalData();
+  });
+
+  async function fetchFestivalData() {
+    try {
+      festivalDataStatus = "loading";
+      festivalData = await loadFestivalDataByFestival();
+      festivalDataStatus =
+        Object.keys(festivalData).length > 0 ? "ready" : "empty";
+    } catch (error) {
+      festivalDataStatus = "error";
+      festivalDataError =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+    }
+  }
 </script>
 
 <svelte:head>
@@ -20,6 +44,19 @@
   />
 </a>
 
+<p class="data-status" aria-live="polite">
+  {#if festivalDataStatus === "loading"}
+    Loading 2025 festival data.
+  {:else if festivalDataStatus === "ready"}
+    {Object.keys(festivalData ?? {}).length.toLocaleString()} 2025 festival groups
+    loaded.
+  {:else if festivalDataStatus === "empty"}
+    No 2025 festival data is available.
+  {:else}
+    Festival data could not be loaded: {festivalDataError}
+  {/if}
+</p>
+
 {#if !showExplorer}
   <main id="main-content" class="landing">
     <section class="intro" aria-labelledby="page-title">
@@ -36,7 +73,7 @@
   </main>
 {:else}
   <main id="main-content">
-    <Map />
+    <Map {festivalData} />
   </main>
 {/if}
 
@@ -55,22 +92,34 @@
   .logo {
     position: fixed;
     z-index: 1100;
-    top: 10px;
-    left: 10px;
+    top: clamp(0.5rem, 2vw, 0.625rem);
+    left: clamp(0.5rem, 2vw, 0.625rem);
     display: block;
-    height: 60px;
+    height: clamp(2.5rem, 8vw, 3.75rem);
   }
 
   .logo img {
     display: block;
     width: auto;
-    height: 60px;
+    height: 100%;
   }
 
   .intro {
     max-width: 48rem;
     width: 100%;
     padding: clamp(4rem, 12vw, 9rem) clamp(1rem, 4vw, 2rem);
+  }
+
+  .data-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .eyebrow {

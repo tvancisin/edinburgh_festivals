@@ -1,10 +1,12 @@
 <script lang="ts">
   import * as d3 from "d3";
-  import { festivals } from "../../utils.js";
+  import type { FestivalDataByFestival } from "./utils/festivalData";
+  import { festivals } from "./utils/festivals.js";
 
   export let circleX = 0;
   export let circleY = 0;
   export let circleRadius = 0;
+  export let festivalData: FestivalDataByFestival | undefined;
 
   const arcThickness = 12;
   const arcGap = 5;
@@ -17,6 +19,7 @@
     .scaleTime()
     .domain([yearStart, yearEnd])
     .range([0, Math.PI * 2]);
+  const parseFestivalDate = d3.timeParse("%Y-%m-%d");
   const formatMonth = d3.timeFormat("%B");
 
   type Festival = (typeof festivals)[number];
@@ -38,6 +41,7 @@
 
   let festivalArcs: FestivalArc[] = [];
   let monthTicks: MonthTick[] = [];
+  let selectedFestivalName: string | null = null;
 
   $: festivalArcs = createFestivalArcs(circleRadius);
   $: monthTicks = createMonthTicks(circleRadius);
@@ -47,10 +51,12 @@
     mapRadius: number,
     stack: number,
   ): FestivalArc {
+    const startAngle = festivalDateAngle(festival.start);
+    const endAngle = festivalDateAngle(festival.end);
     const innerRadius = mapRadius + circleGap + stack * (arcThickness + arcGap);
     const outerRadius = innerRadius + arcThickness;
     const labelRadius = innerRadius + arcThickness / 2;
-    const labelAngle = ((festival.endRad * 180) / Math.PI + 360) % 360;
+    const labelAngle = ((endAngle * 180) / Math.PI + 360) % 360;
     const shouldFlipLabel = labelAngle > 90 && labelAngle < 270;
     const labelGap =
       labelAngle >= 270 || labelAngle <= 45 ? topLabelGap : defaultLabelGap;
@@ -61,18 +67,26 @@
       path: d3.arc()({
         innerRadius,
         outerRadius,
-        startAngle: festival.startRad,
-        endAngle: festival.endRad,
+        startAngle,
+        endAngle,
       }),
       labelX:
-        labelRadius * Math.sin(festival.endRad) +
-        labelGap * Math.cos(festival.endRad),
+        labelRadius * Math.sin(endAngle) + labelGap * Math.cos(endAngle),
       labelY:
-        -labelRadius * Math.cos(festival.endRad) +
-        labelGap * Math.sin(festival.endRad),
+        -labelRadius * Math.cos(endAngle) + labelGap * Math.sin(endAngle),
       labelRotation: shouldFlipLabel ? labelAngle + 180 : labelAngle,
       labelAnchor: shouldFlipLabel ? "end" : "start",
     };
+  }
+
+  function festivalDateAngle(date: string) {
+    const parsedDate = parseFestivalDate(date);
+
+    if (!parsedDate) {
+      throw new Error(`Invalid festival date: ${date}`);
+    }
+
+    return monthAngle(parsedDate);
   }
 
   function createFestivalArcs(mapRadius: number): FestivalArc[] {
@@ -99,6 +113,25 @@
 
   function festivalsOverlap(first: Festival, second: Festival) {
     return first.start < second.end && second.start < first.end;
+  }
+
+  function handleFestivalArcClick(festival: FestivalArc) {
+    selectedFestivalName = festival.name;
+    const festivalGroup = festivalData?.[festival.dataFestival];
+
+    if (!festivalGroup) {
+      console.warn(`No loaded data for ${festival.name}.`);
+      return;
+    }
+
+    console.log(`${festival.name} festival data`, festivalGroup);
+  }
+
+  function handleFestivalArcKeydown(event: KeyboardEvent, festival: FestivalArc) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleFestivalArcClick(festival);
+    }
   }
 
   function createMonthTicks(mapRadius: number): MonthTick[] {
@@ -148,13 +181,20 @@
       class="festival-arc"
       d={festival.path ?? ""}
       data-festival={festival.name}
+      role="button"
+      tabindex="0"
+      aria-label={`Log ${festival.name} festival data`}
+      aria-pressed={selectedFestivalName === festival.name}
+      class:selected={selectedFestivalName === festival.name}
+      on:click={() => handleFestivalArcClick(festival)}
+      on:keydown={(event) => handleFestivalArcKeydown(event, festival)}
     />
     <text
       class="festival-label"
       x={festival.labelX}
       y={festival.labelY}
       text-anchor={festival.labelAnchor}
-      dominant-baseline="center"
+      dominant-baseline="middle"
       transform={`rotate(${festival.labelRotation} ${festival.labelX} ${festival.labelY})`}
       >{festival.name}</text
     >
@@ -186,6 +226,15 @@
 
   .festival-arc {
     fill: #006b63;
+    cursor: pointer;
+    outline: none;
+    pointer-events: visiblePainted;
+  }
+
+  .festival-arc:hover,
+  .festival-arc:focus-visible,
+  .festival-arc.selected {
+    fill: #252525;
   }
 
   .festival-label {
