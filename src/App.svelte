@@ -3,17 +3,37 @@
   import { loadFestivalDataByFestival } from "./lib/utils/festivalData";
   import Map from "./lib/Map.svelte";
 
+  // todo
+  // same location circles spread
+
   type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
 
   let showExplorer = false;
   let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
   let festivalDataStatus: FestivalDataStatus = "loading";
   let festivalDataError = "";
+  let isInitialScreenVisible = true;
+  let isFestivalDataLoaded = false;
+  let areFontsLoaded = false;
+  let isInitialScreenReady = false;
+  let loadingProgress = 0;
   const basePath = import.meta.env.BASE_URL;
 
   onMount(() => {
-    void fetchFestivalData();
+    void initialiseApp();
   });
+
+  $: loadingProgress =
+    (isFestivalDataLoaded ? 50 : 0) + (areFontsLoaded ? 50 : 0);
+
+  async function initialiseApp() {
+    await Promise.all([fetchFestivalData(), waitForDocumentFonts()]);
+    isInitialScreenReady = true;
+  }
+
+  function dismissInitialScreen() {
+    isInitialScreenVisible = false;
+  }
 
   async function fetchFestivalData() {
     try {
@@ -25,7 +45,17 @@
       festivalDataStatus = "error";
       festivalDataError =
         error instanceof Error ? error.message : "An unknown error occurred.";
+    } finally {
+      isFestivalDataLoaded = true;
     }
+  }
+
+  async function waitForDocumentFonts() {
+    if ("fonts" in document) {
+      await document.fonts.ready;
+    }
+
+    areFontsLoaded = true;
   }
 </script>
 
@@ -37,7 +67,37 @@
   />
 </svelte:head>
 
-<a class="logo" href={basePath} aria-label="Edinburgh Festivals home">
+{#if isInitialScreenVisible}
+  <div class="initial-screen" aria-busy={!isInitialScreenReady}>
+    <div class="loading-indicator">
+      <p aria-live="polite">
+        {isInitialScreenReady ? "Loading Complete" : "Loading Data..."}
+      </p>
+      <div
+        class="loading-bar"
+        role="progressbar"
+        aria-label="Preparing Edinburgh Festivals"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={loadingProgress}
+      >
+        <span aria-hidden="true" style:width={`${loadingProgress}%`}></span>
+      </div>
+      {#if isInitialScreenReady}
+        <button class="enter-button" type="button" on:click={dismissInitialScreen}>
+          Enter
+        </button>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<a
+  class="logo"
+  class:compact={showExplorer}
+  href={basePath}
+  aria-label="Edinburgh Festivals home"
+>
   <img
     src={`${basePath}/img/efi_dlm_logo_black.svg`}
     alt="Edinburgh Futures Institute logo"
@@ -89,6 +149,65 @@
     align-items: center;
   }
 
+  .initial-screen {
+    position: fixed;
+    z-index: 2000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: #f8f7f4;
+  }
+
+  .loading-indicator {
+    position: relative;
+    width: min(20rem, 100%);
+    color: #252525;
+
+  }
+
+  .loading-indicator p {
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+    text-align: center;
+        letter-spacing: -0.05em;
+
+  }
+
+  .loading-bar {
+    height: 0.5rem;
+    overflow: hidden;
+    border: 1px solid #252525;
+    border-radius: 999px;
+  }
+
+  .loading-bar span {
+    display: block;
+    height: 100%;
+    background: #006b63;
+  }
+
+  .enter-button {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-top: 1rem;
+    padding: 0.75rem 1.125rem;
+    border: 0;
+    border-radius: 0.25rem;
+    color: #fff;
+    background: #006b63;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transform: translateX(-50%);
+  }
+
+  .enter-button:hover {
+    background: #004f49;
+  }
+
   .logo {
     position: fixed;
     z-index: 1100;
@@ -102,6 +221,10 @@
     display: block;
     width: auto;
     height: 100%;
+  }
+
+  .logo.compact {
+    height: clamp(1.75rem, 6vw, 2.75rem);
   }
 
   .intro {
@@ -120,15 +243,6 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
     border: 0;
-  }
-
-  .eyebrow {
-    margin: 0 0 1rem;
-    color: #006b63;
-    font-size: 0.875rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   h1 {
