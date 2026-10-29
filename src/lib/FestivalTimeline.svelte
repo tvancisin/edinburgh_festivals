@@ -1,12 +1,18 @@
 <script lang="ts">
+  import { createEventDispatcher } from "svelte";
   import * as d3 from "d3";
-  import type { FestivalDataByFestival } from "./utils/festivalData";
+  import type {
+    FestivalDataByFestival,
+    FestivalDataGroup,
+  } from "./utils/festivalData";
   import { festivals } from "./utils/festivals.js";
 
   export let circleX = 0;
   export let circleY = 0;
   export let circleRadius = 0;
   export let festivalData: FestivalDataByFestival | undefined;
+
+  const dispatch = createEventDispatcher<{ select: FestivalDataGroup }>();
 
   const arcThickness = 12;
   const arcGap = 5;
@@ -125,6 +131,7 @@
     }
 
     console.log(`${festival.name} festival data`, festivalGroup);
+    dispatch("select", festivalGroup);
   }
 
   function handleFestivalArcKeydown(event: KeyboardEvent, festival: FestivalArc) {
@@ -214,7 +221,6 @@
 
   .month-label {
     fill: #252525;
-    font-family: Inter;
     letter-spacing: -0.05em;
     font-size: 12px;
     font-weight: 700;
@@ -239,7 +245,6 @@
 
   .festival-label {
     fill: #252525;
-    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.05em;
     font-size: 12px;
     font-weight: 700;

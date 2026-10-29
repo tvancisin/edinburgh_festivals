@@ -134,7 +134,6 @@
   h1 {
     max-width: 10ch;
     margin: 0;
-    font-family: Inter;
     font-size: clamp(2.5rem, 8vw, 5.5rem);
     font-weight: 650;
     letter-spacing: -0.05em;

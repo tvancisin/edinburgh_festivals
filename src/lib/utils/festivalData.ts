@@ -73,6 +73,13 @@ export type FestivalData = {
   raw: RawFestivalData;
 };
 
+export type FestivalDataWithCoordinates = FestivalData & {
+  venue: FestivalData["venue"] & {
+    latitude: number;
+    longitude: number;
+  };
+};
+
 export type FestivalDataGroup = {
   festival: string;
   events: FestivalData[];
@@ -134,6 +141,19 @@ export function groupFestivalData(
     Array.from(d3.group(festivalData, (event) => event.festival)).map(
       ([festival, events]) => [festival, { festival, events }],
     ),
+  );
+}
+
+/**
+ * Returns the supplied events with valid venue coordinates. Events without a
+ * latitude or longitude remain available in the original data collection.
+ */
+export function filterFestivalDataWithCoordinates(
+  festivalData: FestivalData[],
+): FestivalDataWithCoordinates[] {
+  return festivalData.filter(
+    (event): event is FestivalDataWithCoordinates =>
+      event.venue.latitude !== null && event.venue.longitude !== null,
   );
 }
 

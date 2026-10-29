@@ -16,6 +16,7 @@
 
 - Use Svelte's legacy reactive syntax, including `$:`; do not introduce runes.
 - Render visualisations declaratively in Svelte. Keep SVG and DOM rendering in component markup; use D3 for `csv`/`json` loading, parsing, transformations, scales, layouts, and paths. Always import all of D3 as a namespace (`import * as d3 from "d3"`) and use namespaced functions such as `d3.arc()` and `d3.scaleLinear()`.
+- When using Leaflet, use Leaflet's standard layer APIs and rendering (for example, `L.circleMarker(...).addTo(layerGroup)`). Leaflet manages map-layer positioning and redraws; do not duplicate those layers as Svelte or D3 SVG/DOM overlays. The declarative visualisation rule does not apply to Leaflet-managed map layers.
 - Prefer SVG. Give each visualisation its own component and place shared, typed data and formatting helpers in `src/lib`.
 - Keep data loading, D3 `csv`/`json` calls, raw-row schemas, parsing, caching, and transformations outside Svelte components. Put this logic in a dedicated typed module under `src/lib/utils`, export loaders and derived-data helpers from it, and pass loaded data into the application or relevant components.
 - Organise reusable logic in focused files under `src/lib/utils`; do not add to a catch-all utility file. For example, keep CSV loading and transformations in `festivalData.ts`, and keep static festival timeline configuration in `festivals.js`.

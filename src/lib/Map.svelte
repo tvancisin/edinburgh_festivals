@@ -3,7 +3,12 @@
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
   import FestivalTimeline from "./FestivalTimeline.svelte";
-  import type { FestivalDataByFestival } from "./utils/festivalData";
+  import type {
+    FestivalDataByFestival,
+    FestivalDataGroup,
+    FestivalDataWithCoordinates,
+  } from "./utils/festivalData";
+  import { filterFestivalDataWithCoordinates } from "./utils/festivalData";
   import { festivals } from "./utils/festivals.js";
 
   export let festivalData: FestivalDataByFestival | undefined;
@@ -15,11 +20,13 @@
   let circleX = 0;
   let circleY = 0;
   let circleRadius = 0;
+  let selectedFestivalData: FestivalDataGroup | undefined;
+  let eventMarkerLayer: L.LayerGroup | undefined;
+  let eventLocationCount = 0;
 
   $: circleX = width / 2;
   $: circleY = height / 2;
   $: circleRadius = Math.max(0, Math.min(width / 2 - 40, height / 2 - 50));
-
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
@@ -37,10 +44,94 @@
       maxZoom: 19,
     }).addTo(map);
 
+    eventMarkerLayer = L.layerGroup().addTo(map);
+
+    if (selectedFestivalData) {
+      renderEventMarkers(selectedFestivalData);
+    }
+
     map.invalidateSize({ animate: false });
 
-    return () => map?.remove();
+    return () => {
+      eventMarkerLayer?.clearLayers();
+      map?.remove();
+    };
   });
+
+  function handleFestivalSelect(event: CustomEvent<FestivalDataGroup>) {
+    selectedFestivalData = event.detail;
+    renderEventMarkers(selectedFestivalData);
+  }
+
+  function renderEventMarkers(festivalGroup: FestivalDataGroup) {
+    const eventsWithCoordinates = filterFestivalDataWithCoordinates(
+      festivalGroup.events,
+    );
+
+    eventLocationCount = eventsWithCoordinates.length;
+    eventMarkerLayer?.clearLayers();
+
+    const markerLayer = eventMarkerLayer;
+
+    if (!markerLayer) {
+      return;
+    }
+
+    eventsWithCoordinates.forEach((event) => {
+      L.circleMarker([event.venue.latitude, event.venue.longitude], {
+        radius: 4,
+        fillColor: "#ffffff",
+        fillOpacity: 0.55,
+        color: "#020202",
+        weight: 1,
+      })
+        .bindPopup(createEventPopupContent(event), {
+          className: "event-popup-container",
+          maxWidth: 240,
+        })
+        .addTo(markerLayer);
+    });
+  }
+
+  function createEventPopupContent(event: FestivalDataWithCoordinates) {
+    const title = event.title.trim() || "Untitled event";
+    const details = [
+      createPopupDetail("Venue", event.venue.name),
+      createPopupDetail("Address", event.venue.address),
+      createPopupDetail("Artist", event.artist),
+      createPopupDetail("Genre", event.genre),
+      createPopupDetail("Performances", event.performanceCount),
+    ].join("");
+
+    return `<section class="event-popup"><h3>${escapeHtml(title)}</h3><dl>${details}</dl></section>`;
+  }
+
+  function createPopupDetail(label: string, value: string | number | null) {
+    const formattedValue =
+      typeof value === "number"
+        ? value.toLocaleString("en-GB")
+        : value?.trim() ?? "";
+
+    if (!formattedValue) {
+      return "";
+    }
+
+    return `<dt>${label}</dt><dd>${escapeHtml(formattedValue)}</dd>`;
+  }
+
+  function escapeHtml(value: string) {
+    return value.replace(/[&<>'"]/g, (character) => {
+      const entities: Record<string, string> = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      };
+
+      return entities[character];
+    });
+  }
 </script>
 
 <section class="map" aria-labelledby="map-title">
@@ -51,6 +142,11 @@
     festival's 2026 date range. Use your keyboard, mouse, trackpad, or touch
     screen to navigate the map.
   </p>
+  {#if selectedFestivalData}
+    <p class="visually-hidden" aria-live="polite">
+      {eventLocationCount} event locations shown for {selectedFestivalData.festival}.
+    </p>
+  {/if}
   <ul class="visually-hidden" aria-label="Festival date ranges in 2026">
     {#each festivals as festival}
       <li>{festival.name}: {festival.start} to {festival.end}</li>
@@ -80,7 +176,13 @@
       </mask>
     </defs>
     <rect {width} {height} fill="#F8F7F4" mask="url(#map-window-mask)" />
-    <FestivalTimeline {circleX} {circleY} {circleRadius} {festivalData} />
+    <FestivalTimeline
+      {circleX}
+      {circleY}
+      {circleRadius}
+      {festivalData}
+      on:select={handleFestivalSelect}
+    />
   </svg>
 </section>
 
@@ -125,6 +227,35 @@
   }
 
   .timeline-legend p {
+    margin: 0;
+  }
+
+  :global(.event-popup-container .leaflet-popup-content) {
+    margin: 0.75rem 1rem;
+  }
+
+  :global(.event-popup) {
+    color: #252525;
+    font-size: 0.875rem;
+  }
+
+  :global(.event-popup h3) {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+  }
+
+  :global(.event-popup dl) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.5rem;
+    margin: 0;
+  }
+
+  :global(.event-popup dt) {
+    font-weight: 700;
+  }
+
+  :global(.event-popup dd) {
     margin: 0;
   }
 
