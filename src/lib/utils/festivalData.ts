@@ -145,6 +145,17 @@ export function groupFestivalData(
 }
 
 /**
+ * Flattens festival groups without changing their group or event order.
+ */
+export function flattenFestivalDataByFestival(
+  festivalDataByFestival: FestivalDataByFestival,
+): FestivalData[] {
+  return Object.values(festivalDataByFestival).flatMap(
+    (festivalGroup) => festivalGroup.events,
+  );
+}
+
+/**
  * Returns the supplied events with valid venue coordinates. Events without a
  * latitude or longitude remain available in the original data collection.
  */

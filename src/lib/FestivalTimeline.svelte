@@ -11,6 +11,7 @@
   export let circleY = 0;
   export let circleRadius = 0;
   export let festivalData: FestivalDataByFestival | undefined;
+  export let selectedFestivalName: string | null = null;
 
   const dispatch = createEventDispatcher<{ select: FestivalDataGroup }>();
 
@@ -47,8 +48,6 @@
 
   let festivalArcs: FestivalArc[] = [];
   let monthTicks: MonthTick[] = [];
-  let selectedFestivalName: string | null = null;
-
   $: festivalArcs = createFestivalArcs(circleRadius);
   $: monthTicks = createMonthTicks(circleRadius);
 
@@ -193,6 +192,9 @@
       aria-label={`Log ${festival.name} festival data`}
       aria-pressed={selectedFestivalName === festival.name}
       class:selected={selectedFestivalName === festival.name}
+      class:inactive={
+        selectedFestivalName !== null && selectedFestivalName !== festival.name
+      }
       on:click={() => handleFestivalArcClick(festival)}
       on:keydown={(event) => handleFestivalArcKeydown(event, festival)}
     />
@@ -203,6 +205,9 @@
       text-anchor={festival.labelAnchor}
       dominant-baseline="middle"
       transform={`rotate(${festival.labelRotation} ${festival.labelX} ${festival.labelY})`}
+      class:inactive={
+        selectedFestivalName !== null && selectedFestivalName !== festival.name
+      }
       >{festival.name}</text
     >
   {/each}
@@ -235,12 +240,17 @@
     cursor: pointer;
     outline: none;
     pointer-events: visiblePainted;
+    transition: opacity 160ms ease;
   }
 
   .festival-arc:hover,
   .festival-arc:focus-visible,
   .festival-arc.selected {
     fill: #252525;
+  }
+
+  .festival-arc.inactive {
+    opacity: 0.25;
   }
 
   .festival-label {
@@ -252,5 +262,17 @@
     stroke: #f8f7f4;
     stroke-linejoin: round;
     stroke-width: 4px;
+    transition: opacity 160ms ease;
+  }
+
+  .festival-label.inactive {
+    opacity: 0.4;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .festival-arc,
+    .festival-label {
+      transition: none;
+    }
   }
 </style>
