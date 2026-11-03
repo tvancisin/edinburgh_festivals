@@ -34,7 +34,7 @@
   let circleY = 0;
   let circleRadius = 0;
   let selectedFestivalData: FestivalDataGroup | undefined;
-  let selectedFestivalName: string | null = null;
+  let previewFestivalData: FestivalDataGroup | undefined;
   let eventMarkerLayer: L.LayerGroup | undefined;
   let eventMarkerRenderer: L.Canvas | undefined;
   let displayedEvents: FestivalDataGroup["events"] | undefined;
@@ -49,7 +49,9 @@
     map.invalidateSize({ animate: false });
   }
   $: if (eventMarkerLayer && festivalData && !selectedFestivalData) {
-    renderEventHexBins(flattenFestivalDataByFestival(festivalData));
+    renderEventHexBins(
+      previewFestivalData?.events ?? flattenFestivalDataByFestival(festivalData),
+    );
   }
   onMount(() => {
     map = L.map(mapElement, {
@@ -90,13 +92,22 @@
   });
 
   function handleFestivalSelect(event: CustomEvent<FestivalDataGroup>) {
+    previewFestivalData = undefined;
     selectedFestivalData = event.detail;
     renderEventHexBins(selectedFestivalData.events);
   }
 
+  function handleFestivalPreview(
+    event: CustomEvent<FestivalDataGroup | undefined>,
+  ) {
+    if (!selectedFestivalData) {
+      previewFestivalData = event.detail;
+    }
+  }
+
   function resetFestivalSelection() {
     selectedFestivalData = undefined;
-    selectedFestivalName = null;
+    previewFestivalData = undefined;
   }
 
   function renderEventHexBins(events: FestivalDataGroup["events"]) {
@@ -148,7 +159,6 @@
         })
         .addTo(markerLayer);
     });
-
   }
 
   function createHexBinPopupContent(bin: HexagonalFestivalBin) {
@@ -191,7 +201,7 @@
     An interactive map of Edinburgh using OpenStreetMap base data is visible
     through a circular window. Hexagons group festival venue locations, and
     their opacity indicates the number of source event records in each area.
-    Arcs around that window show each festival's 2026 date range. Use your
+    Arcs around that window show each festival's 2025 date range. Use your
     keyboard, mouse, trackpad, or touch screen to navigate the map.
   </p>
   {#if festivalData}
@@ -199,10 +209,12 @@
       {eventLocationCount} source event records grouped into hexagons
       {selectedFestivalData
         ? `for ${selectedFestivalData.festival}`
+        : previewFestivalData
+          ? `for ${previewFestivalData.festival} while previewing`
         : "across all festivals"}.
     </p>
   {/if}
-  <ul class="visually-hidden" aria-label="Festival date ranges in 2026">
+  <ul class="visually-hidden" aria-label="Festival date ranges from 2025">
     {#each festivals as festival}
       <li>{festival.name}: {festival.start} to {festival.end}</li>
     {/each}
@@ -213,7 +225,7 @@
     bind:clientWidth={width}
     bind:clientHeight={height}
   ></div>
-  {#if selectedFestivalName}
+  {#if selectedFestivalData}
     <button
       class="selection-reset"
       type="button"
@@ -224,10 +236,9 @@
         <path d="m9 14-5-5 5-5" />
         <path d="M4 9h10a6 6 0 0 1 6 6v1" />
       </svg>
-      <span>Return</span>
     </button>
   {/if}
-  {#if isLegendVisible}
+  <!-- {#if isLegendVisible}
     <aside class="timeline-legend" aria-label="Festival timeline help">
       <button
         class="legend-dismiss"
@@ -261,7 +272,7 @@
         <span>Festival Periods</span>
       </div>
     </aside>
-  {/if}
+  {/if} -->
   <div
     class="camera-readout"
     title="Virtual camera altitude assuming a 36.87° vertical FOV and the current map viewport height. Leaflet has no real camera."
@@ -295,8 +306,8 @@
       {circleY}
       {circleRadius}
       {festivalData}
-      bind:selectedFestivalName
       on:select={handleFestivalSelect}
+      on:preview={handleFestivalPreview}
     />
   </svg>
 </section>

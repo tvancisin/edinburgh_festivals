@@ -84,7 +84,11 @@
         <span aria-hidden="true" style:width={`${loadingProgress}%`}></span>
       </div>
       {#if isInitialScreenReady}
-        <button class="enter-button" type="button" on:click={dismissInitialScreen}>
+        <button
+          class="enter-button"
+          type="button"
+          on:click={dismissInitialScreen}
+        >
           Enter
         </button>
       {/if}
@@ -163,15 +167,13 @@
     position: relative;
     width: min(20rem, 100%);
     color: #252525;
-
   }
 
   .loading-indicator p {
     margin: 0 0 0.5rem;
     font-weight: 700;
     text-align: center;
-        letter-spacing: -0.05em;
-
+    letter-spacing: -0.05em;
   }
 
   .loading-bar {

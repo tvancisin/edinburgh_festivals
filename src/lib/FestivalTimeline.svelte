@@ -11,23 +11,32 @@
   export let circleY = 0;
   export let circleRadius = 0;
   export let festivalData: FestivalDataByFestival | undefined;
-  export let selectedFestivalName: string | null = null;
 
-  const dispatch = createEventDispatcher<{ select: FestivalDataGroup }>();
+  const dispatch = createEventDispatcher<{
+    select: FestivalDataGroup;
+    preview: FestivalDataGroup | undefined;
+  }>();
 
   const arcThickness = 12;
   const arcGap = 5;
   const circleGap = 5;
   const defaultLabelGap = 5;
   const topLabelGap = 5;
-  const yearStart = new Date(2026, 0, 1);
-  const yearEnd = new Date(2027, 0, 1);
-  const monthAngle = d3
+  const yearStart = new Date(2025, 0, 1);
+  const yearEnd = new Date(2026, 0, 1);
+  const currentDate = new Date();
+  const todayIndicatorDate = new Date(
+    yearStart.getFullYear(),
+    currentDate.getMonth(),
+    currentDate.getDate(),
+  );
+  const dateAngle = d3
     .scaleTime()
     .domain([yearStart, yearEnd])
     .range([0, Math.PI * 2]);
   const parseFestivalDate = d3.timeParse("%Y-%m-%d");
   const formatMonth = d3.timeFormat("%B");
+  const formatToday = d3.timeFormat("%-d %B");
 
   type Festival = (typeof festivals)[number];
   type FestivalArc = Festival & {
@@ -45,11 +54,20 @@
     labelY: number;
     labelRotation: number;
   };
+  type TodayIndicator = {
+    angle: number;
+    labelX: number;
+    labelY: number;
+    labelRotation: number;
+  };
 
   let festivalArcs: FestivalArc[] = [];
   let monthTicks: MonthTick[] = [];
+  let todayIndicator: TodayIndicator;
+
   $: festivalArcs = createFestivalArcs(circleRadius);
   $: monthTicks = createMonthTicks(circleRadius);
+  $: todayIndicator = createTodayIndicator(circleRadius);
 
   function createFestivalArc(
     festival: Festival,
@@ -91,7 +109,7 @@
       throw new Error(`Invalid festival date: ${date}`);
     }
 
-    return monthAngle(parsedDate);
+    return dateAngle(parsedDate);
   }
 
   function createFestivalArcs(mapRadius: number): FestivalArc[] {
@@ -121,7 +139,6 @@
   }
 
   function handleFestivalArcClick(festival: FestivalArc) {
-    selectedFestivalName = festival.name;
     const festivalGroup = festivalData?.[festival.dataFestival];
 
     if (!festivalGroup) {
@@ -129,8 +146,15 @@
       return;
     }
 
-    console.log(`${festival.name} festival data`, festivalGroup);
     dispatch("select", festivalGroup);
+  }
+
+  function previewFestivalArc(festival: FestivalArc) {
+    dispatch("preview", festivalData?.[festival.dataFestival]);
+  }
+
+  function clearFestivalPreview() {
+    dispatch("preview", undefined);
   }
 
   function handleFestivalArcKeydown(event: KeyboardEvent, festival: FestivalArc) {
@@ -144,7 +168,7 @@
     const labelRadius = Math.max(0, mapRadius - 14);
 
     return d3.timeMonth.range(yearStart, yearEnd).map((date) => {
-      const angle = monthAngle(date);
+      const angle = dateAngle(date);
       const angleDegrees = ((angle * 180) / Math.PI + 360) % 360;
       const shouldFlipLabel = angleDegrees > 90 && angleDegrees < 270;
 
@@ -157,10 +181,23 @@
       };
     });
   }
+
+  function createTodayIndicator(mapRadius: number): TodayIndicator {
+    const angle = dateAngle(todayIndicatorDate);
+    const labelRadius = mapRadius + 50;
+    const angleDegrees = ((angle * 180) / Math.PI + 360) % 360;
+    const shouldFlipLabel = angleDegrees > 90 && angleDegrees < 270;
+
+    return {
+      angle,
+      labelX: labelRadius * Math.sin(angle),
+      labelY: -labelRadius * Math.cos(angle),
+      labelRotation: shouldFlipLabel ? angleDegrees + 180 : angleDegrees,
+    };
+  }
 </script>
 
 <g transform={`translate(${circleX} ${circleY})`}>
-  <!-- axis -->
   <circle class="timeline-axis" r={circleRadius} />
   {#each monthTicks as tick}
     <line
@@ -181,7 +218,26 @@
       >{tick.label}</text
     >
   {/each}
-  <!-- arcs -->
+  <g
+    class="today-indicator"
+    role="img"
+    aria-label={`Today: ${formatToday(todayIndicatorDate)}`}
+  >
+    <line
+      x1="0"
+      x2="0"
+      y1={-circleRadius}
+      y2={-(circleRadius + 40)}
+      transform={`rotate(${(todayIndicator.angle * 180) / Math.PI})`}
+    />
+    <text
+      x={todayIndicator.labelX}
+      y={todayIndicator.labelY}
+      dominant-baseline="middle"
+      transform={`rotate(${todayIndicator.labelRotation} ${todayIndicator.labelX} ${todayIndicator.labelY})`}
+      >Today</text
+    >
+  </g>
   {#each festivalArcs as festival}
     <path
       class="festival-arc"
@@ -189,13 +245,13 @@
       data-festival={festival.name}
       role="button"
       tabindex="0"
-      aria-label={`Log ${festival.name} festival data`}
-      aria-pressed={selectedFestivalName === festival.name}
-      class:selected={selectedFestivalName === festival.name}
-      class:inactive={
-        selectedFestivalName !== null && selectedFestivalName !== festival.name
-      }
+      aria-label={`Filter map to ${festival.name} festival data`}
+      aria-pressed="false"
       on:click={() => handleFestivalArcClick(festival)}
+      on:mouseenter={() => previewFestivalArc(festival)}
+      on:mouseleave={clearFestivalPreview}
+      on:focus={() => previewFestivalArc(festival)}
+      on:blur={clearFestivalPreview}
       on:keydown={(event) => handleFestivalArcKeydown(event, festival)}
     />
     <text
@@ -205,9 +261,6 @@
       text-anchor={festival.labelAnchor}
       dominant-baseline="middle"
       transform={`rotate(${festival.labelRotation} ${festival.labelX} ${festival.labelY})`}
-      class:inactive={
-        selectedFestivalName !== null && selectedFestivalName !== festival.name
-      }
       >{festival.name}</text
     >
   {/each}
@@ -235,22 +288,27 @@
     stroke-width: 3px;
   }
 
+  .today-indicator {
+    fill: #006b63;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .today-indicator line {
+    stroke: #006b63;
+    stroke-width: 2px;
+  }
+
   .festival-arc {
     fill: #006b63;
     cursor: pointer;
     outline: none;
     pointer-events: visiblePainted;
-    transition: opacity 160ms ease;
   }
 
   .festival-arc:hover,
-  .festival-arc:focus-visible,
-  .festival-arc.selected {
+  .festival-arc:focus-visible {
     fill: #252525;
-  }
-
-  .festival-arc.inactive {
-    opacity: 0.25;
   }
 
   .festival-label {
@@ -262,17 +320,5 @@
     stroke: #f8f7f4;
     stroke-linejoin: round;
     stroke-width: 4px;
-    transition: opacity 160ms ease;
-  }
-
-  .festival-label.inactive {
-    opacity: 0.4;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .festival-arc,
-    .festival-label {
-      transition: none;
-    }
   }
 </style>
