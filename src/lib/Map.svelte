@@ -1,16 +1,23 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { createEventDispatcher, onMount } from "svelte";
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
+  import WorldHexPanels from "./WorldHexPanels.svelte";
+  import type {
+    WorldHexData,
+    WorldHexDataStatus,
+  } from "./utils/worldHexMap";
   import FestivalTimeline from "./FestivalTimeline.svelte";
   import type {
     FestivalDataByFestival,
     FestivalDataGroup,
   } from "./utils/festivalData";
+  import { filterFestivalDataWithCoordinates } from "./utils/festivalData";
   import {
-    filterFestivalDataWithCoordinates,
-    flattenFestivalDataByFestival,
-  } from "./utils/festivalData";
+    aggregateCountryRepresentation,
+    createCountryCatalog,
+    selectFestivalEvents,
+  } from "./utils/festivalCountries";
   import {
     addHexagonalBinOpacities,
     createHexagonalFestivalBins,
@@ -23,6 +30,13 @@
   import { festivals } from "./utils/festivals.js";
 
   export let festivalData: FestivalDataByFestival | undefined;
+  export let festivalDataStatus: WorldHexDataStatus = "loading";
+  export let festivalDataError = "";
+  export let worldHexData: WorldHexData | undefined;
+  export let worldHexDataStatus: WorldHexDataStatus = "loading";
+  export let worldHexDataError = "";
+
+  const dispatch = createEventDispatcher<{ ready: void }>();
 
   const hexBinRadius = 16;
 
@@ -48,11 +62,13 @@
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
-  $: if (eventMarkerLayer && festivalData && !selectedFestivalData) {
-    renderEventHexBins(
-      previewFestivalData?.events ?? flattenFestivalDataByFestival(festivalData),
-    );
-  }
+  $: activeEvents = selectFestivalEvents(festivalData, selectedFestivalData, previewFestivalData);
+  $: countryCatalog = worldHexData ? createCountryCatalog(worldHexData) : undefined;
+  $: countryRepresentation = activeEvents && countryCatalog
+    ? aggregateCountryRepresentation(activeEvents, countryCatalog)
+    : undefined;
+  $: countryScope = selectedFestivalData?.festival ?? previewFestivalData?.festival ?? "All festivals";
+  $: if (eventMarkerLayer && activeEvents) renderEventHexBins(activeEvents);
   onMount(() => {
     map = L.map(mapElement, {
       center: [55.9533, -3.1883],
@@ -60,11 +76,13 @@
       zoomControl: false,
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    const baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
-    }).addTo(map);
+    });
+    baseLayer.once("load", () => dispatch("ready"));
+    baseLayer.addTo(map);
 
     eventMarkerRenderer = L.canvas({ padding: 0.5 }).addTo(map);
     eventMarkerLayer = L.layerGroup().addTo(map);
@@ -94,7 +112,6 @@
   function handleFestivalSelect(event: CustomEvent<FestivalDataGroup>) {
     previewFestivalData = undefined;
     selectedFestivalData = event.detail;
-    renderEventHexBins(selectedFestivalData.events);
   }
 
   function handleFestivalPreview(
@@ -204,6 +221,20 @@
     Arcs around that window show each festival's 2025 date range. Use your
     keyboard, mouse, trackpad, or touch screen to navigate the map.
   </p>
+  <p class="visually-hidden">
+    Hex maps derived from country polygons flank the Edinburgh map.
+    The Americas appear on the left with detached Pacific islands omitted;
+    the remaining world appears on the right with detached western outliers
+    and islands east of Australia omitted; Iceland and New Zealand are retained.
+    Selected remote territories are also omitted.
+    New Zealand's island spacing is adjusted schematically.
+    Hawaii is represented by two schematic hexagons in the Americas panel.
+    Scotland, England, Wales, and Northern Ireland each have one UK hexagon.
+    Both panels use the same hexagon size.
+    Coastlines and gaps reflect the supplied Natural Earth grid.
+    Higher opacity shows more event records associated with each country or
+    UK nation in the Country column. Country counts follow the festival selection.
+  </p>
   {#if festivalData}
     <p class="visually-hidden" aria-live="polite">
       {eventLocationCount} source event records grouped into hexagons
@@ -306,10 +337,22 @@
       {circleY}
       {circleRadius}
       {festivalData}
+      selectedFestivalDataName={selectedFestivalData?.festival ?? null}
       on:select={handleFestivalSelect}
       on:preview={handleFestivalPreview}
     />
   </svg>
+  <WorldHexPanels
+    {circleX}
+    {circleRadius}
+    data={worldHexData}
+    status={worldHexDataStatus}
+    error={worldHexDataError}
+    representation={countryRepresentation}
+    scope={countryScope}
+    countryStatus={festivalDataStatus}
+    countryError={festivalDataError}
+  />
 </section>
 
 <style>

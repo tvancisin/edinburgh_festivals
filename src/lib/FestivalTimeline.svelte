@@ -11,6 +11,7 @@
   export let circleY = 0;
   export let circleRadius = 0;
   export let festivalData: FestivalDataByFestival | undefined;
+  export let selectedFestivalDataName: string | null = null;
 
   const dispatch = createEventDispatcher<{
     select: FestivalDataGroup;
@@ -246,7 +247,8 @@
       role="button"
       tabindex="0"
       aria-label={`Filter map to ${festival.name} festival data`}
-      aria-pressed="false"
+      aria-pressed={selectedFestivalDataName === festival.dataFestival}
+      class:selected={selectedFestivalDataName === festival.dataFestival}
       on:click={() => handleFestivalArcClick(festival)}
       on:mouseenter={() => previewFestivalArc(festival)}
       on:mouseleave={clearFestivalPreview}
@@ -292,6 +294,7 @@
     fill: #006b63;
     font-size: 12px;
     font-weight: 700;
+    letter-spacing: -0.05em;
   }
 
   .today-indicator line {
@@ -307,7 +310,8 @@
   }
 
   .festival-arc:hover,
-  .festival-arc:focus-visible {
+  .festival-arc:focus-visible,
+  .festival-arc.selected {
     fill: #252525;
   }
 

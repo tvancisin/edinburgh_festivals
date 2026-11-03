@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { loadFestivalDataByFestival } from "./lib/utils/festivalData";
+  import {
+    loadWorldHexData,
+    type WorldHexData,
+    type WorldHexDataStatus,
+  } from "./lib/utils/worldHexMap";
   import Map from "./lib/Map.svelte";
 
   // todo
@@ -12,24 +17,29 @@
   let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
   let festivalDataStatus: FestivalDataStatus = "loading";
   let festivalDataError = "";
+  let worldHexData: WorldHexData | undefined;
+  let worldHexDataStatus: WorldHexDataStatus = "loading";
+  let worldHexDataError = "";
   let isInitialScreenVisible = true;
   let isFestivalDataLoaded = false;
   let areFontsLoaded = false;
+  let isMapLoaded = false;
   let isInitialScreenReady = false;
   let loadingProgress = 0;
   const basePath = import.meta.env.BASE_URL;
 
   onMount(() => {
-    void initialiseApp();
+    void fetchFestivalData();
+    void fetchWorldHexData();
+    void waitForDocumentFonts();
   });
 
   $: loadingProgress =
-    (isFestivalDataLoaded ? 50 : 0) + (areFontsLoaded ? 50 : 0);
-
-  async function initialiseApp() {
-    await Promise.all([fetchFestivalData(), waitForDocumentFonts()]);
-    isInitialScreenReady = true;
-  }
+    (isFestivalDataLoaded ? 34 : 0) +
+    (areFontsLoaded ? 33 : 0) +
+    (isMapLoaded ? 33 : 0);
+  $: isInitialScreenReady =
+    isFestivalDataLoaded && areFontsLoaded && isMapLoaded;
 
   function dismissInitialScreen() {
     isInitialScreenVisible = false;
@@ -57,6 +67,26 @@
 
     areFontsLoaded = true;
   }
+
+  async function fetchWorldHexData() {
+    try {
+      worldHexData = await loadWorldHexData();
+      worldHexDataStatus = worldHexData.americasHexes.length + worldHexData.restHexes.length > 0
+        ? "ready"
+        : "empty";
+    } catch (error) {
+      worldHexDataStatus = "error";
+      worldHexDataError =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+    }
+  }
+
+  function handleMapLoaded() {
+    isMapLoaded = true;
+  }
+
+  $: console.log(worldHexData);
+  
 </script>
 
 <svelte:head>
@@ -71,7 +101,7 @@
   <div class="initial-screen" aria-busy={!isInitialScreenReady}>
     <div class="loading-indicator">
       <p aria-live="polite">
-        {isInitialScreenReady ? "Loading Complete" : "Loading Data..."}
+        {isInitialScreenReady ? "Loading Complete" : "Loading..."}
       </p>
       <div
         class="loading-bar"
@@ -121,8 +151,19 @@
   {/if}
 </p>
 
-{#if !showExplorer}
-  <main id="main-content" class="landing">
+<main id="main-content" class:landing={!showExplorer}>
+  <div class="map-shell" class:map-hidden={!showExplorer} aria-hidden={!showExplorer}>
+    <Map
+      {festivalData}
+      {festivalDataStatus}
+      {festivalDataError}
+      {worldHexData}
+      {worldHexDataStatus}
+      {worldHexDataError}
+      on:ready={handleMapLoaded}
+    />
+  </div>
+  {#if !showExplorer}
     <section class="intro" aria-labelledby="page-title">
       <!-- <p class="eyebrow">Festival data explorer</p> -->
       <h1 id="page-title">Edinburgh Festivals</h1>
@@ -134,15 +175,12 @@
         Explore the data
       </button>
     </section>
-  </main>
-{:else}
-  <main id="main-content">
-    <Map {festivalData} />
-  </main>
-{/if}
+  {/if}
+</main>
 
 <style>
   #main-content {
+    position: relative;
     width: 100%;
     height: 100dvh;
     overflow: hidden;
@@ -151,6 +189,16 @@
   .landing {
     display: flex;
     align-items: center;
+  }
+
+  .map-shell {
+    position: absolute;
+    inset: 0;
+  }
+
+  .map-hidden {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .initial-screen {
@@ -230,6 +278,8 @@
   }
 
   .intro {
+    position: relative;
+    z-index: 1;
     max-width: 48rem;
     width: 100%;
     padding: clamp(4rem, 12vw, 9rem) clamp(1rem, 4vw, 2rem);
