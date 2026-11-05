@@ -53,22 +53,23 @@ contains no Gibraltar hexagon. These rows remain in the source data and in
 the reports. Counts describe the Country associations supplied by the data;
 they are not claims about nationality, residence, event location, or causation.
 
-For each selection, let M be the largest positive count among mapped countries
-or UK nations. A zero count has fill opacity 0.1. A positive count n has
-opacity `0.3 + 0.7 × ln(n + 1) / ln(M + 1)`, capped at 1. Black hexagons with
-positive counts have more than 30% opacity, so even one related event record
-remains visible. The logarithmic scale spreads smaller counts further apart
-while compressing the largest counts. For all festivals (M = 1,677), one record
-has about 37% opacity, 11 records about 53%, and 43 records about 66%. The
-largest count has 100% opacity, including when M = 1. All
-cells for a given country/nation get the same value,
+For each selection, a zero count has fill opacity 0.1. England and Scotland
+use opacity 1 whenever they have a positive count. These two UK nations each
+have one schematic cell and are excluded from the four remaining fixed count
+ranges. Every other positive count is assigned to one of the ranges in the
+directly adjustable `countryOpacity` constant in
+`src/lib/utils/festivalCountries.ts`.
+
+The four ranges are 1-19 records at 0.35 opacity, 20-111 at 0.55, 112-300
+at 0.75, and 301 or more at 0.95. Canada (69 records) is therefore 0.55
+opaque, Australia (204) is 0.75, and the United States (556) is 0.95. The
+same fixed ranges apply to every festival selection, so an equal shade means
+the same count range. All cells for a given country/nation get the same value,
 regardless of its area or number of hexagons. With no mapped associations,
 all cells have opacity 0.1. Missing/unavailable data has null cell counts and
 an explicit loading or error message, rather than being presented as zero.
 
-Opacity rescales within each festival selection, so an equal shade across two
-different selections need not mean an equal count. The popup and table show
-the exact count and active festival. The visible key explains the encoding;
+The popup and table show the exact count and active festival. The visible key explains the encoding;
 the table and screen-reader summary provide alternatives to interpreting
 opacity. The table remains available when narrow layouts hide the hex panels.
 

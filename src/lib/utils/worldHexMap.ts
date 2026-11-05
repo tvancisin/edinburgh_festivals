@@ -78,6 +78,8 @@ export const worldHexPanelBox = {
 };
 // Inset each hex radius by 8% to leave a thin gap between neighboring cells.
 export const worldHexGap = 0.08;
+// Relative size of both maps after they are fitted. Adjust from 0 to 1 to preview a smaller map.
+export const worldHexMapSize = 0.8;
 
 let worldHexDataPromise: Promise<WorldHexData> | undefined;
 
@@ -187,7 +189,7 @@ export function createWorldHexLayout(
   const scales = preparedPanels.flatMap(({ panel, bounds }) =>
     bounds ? [panel.width / bounds.width, panel.height / bounds.height] : []);
   if (!scales.length) return undefined;
-  const scale = Math.min(...scales);
+  const scale = Math.min(...scales) * worldHexMapSize;
   const radius = data.hexRadius * scale * (1 - worldHexGap);
   // Match the smaller centered gap, moving the narrower map toward the circle.
   const circleInset = Math.max(0, Math.min(...preparedPanels.flatMap(({ panel, bounds }) =>

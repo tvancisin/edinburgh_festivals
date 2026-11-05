@@ -51,7 +51,25 @@ export type RepresentedWorldHexLayout = Omit<WorldHexLayout, "panels"> & {
   panels: (Omit<WorldHexPanelLayout, "cells"> & { cells: RepresentedWorldHexCell[] })[];
 };
 
-export const countryOpacity = { noRecords: 0.1, minimum: 0.2, maximum: 1 };
+export type CountryOpacityBand = {
+  maximumEventCount: number;
+  opacity: number;
+};
+
+/** Adjust the fixed count ranges used by countries other than England and Scotland. */
+export const countryOpacity = {
+  noRecords: 0.1,
+  englandAndScotland: 1,
+  bands: [
+    { maximumEventCount: 19, opacity: 0.35 },
+    { maximumEventCount: 111, opacity: 0.55 },
+    { maximumEventCount: 300, opacity: 0.75 },
+    { maximumEventCount: Infinity, opacity: 0.95 },
+  ] satisfies CountryOpacityBand[],
+  maximum: 1,
+};
+
+const maximumOpacityCountryKeys = new Set(["826:england", "826:scotland"]);
 
 const ukNationKeys: Record<string, string> = {
   SCOTLAND: "826:scotland",
@@ -163,8 +181,9 @@ export function selectFestivalEvents(
 }
 
 /** Aggregate one full count per country per row; multi-country totals can exceed
- * row totals. Positive counts use a log(count + 1) opacity scale within the current
- * selection. Generic UK rows are listed separately and never shaded as nations.
+ * row totals. England and Scotland use full opacity; other positive counts use
+ * four fixed count ranges. Generic UK rows are listed separately and never
+ * shaded as nations.
  */
 export function aggregateCountryRepresentation(events: FestivalData[], catalog: CountryCatalog): CountryRepresentation {
   const relations = events.map((event) => relateEventCountries(event, catalog));
@@ -184,13 +203,11 @@ export function aggregateCountryRepresentation(events: FestivalData[], catalog: 
   }
   const maximumEventCount = d3.max([...catalog.targets.values()]
     .filter((target) => target.hasHexagons), (target) => rowsByKey.get(target.key)?.length ?? 0) ?? 0;
-  const scale = d3.scaleLog().domain([1, Math.max(2, maximumEventCount + 1)])
-    .range([countryOpacity.minimum, countryOpacity.maximum]).clamp(true);
   const countries = [...catalog.targets.values()].map((target): CountryEventCount => {
     const eventRows = rowsByKey.get(target.key) ?? [];
     return {
       ...target, eventRows, eventCount: eventRows.length,
-      fillOpacity: eventRows.length ? scale(eventRows.length + 1) : countryOpacity.noRecords,
+      fillOpacity: getCountryFillOpacity(target.key, eventRows.length),
     };
   }).sort((a, b) => b.eventCount - a.eventCount || a.name.localeCompare(b.name, "en"));
   return {
@@ -201,6 +218,17 @@ export function aggregateCountryRepresentation(events: FestivalData[], catalog: 
     unmatchedValues: [...unmatched].map(([value, raw]) => ({ value, eventCount: raw.length, raw })),
     maximumEventCount, relations, raw: events.map((event) => event.raw),
   };
+}
+
+/** Keep the two highest-volume UK nations distinct from the four country bands. */
+export function getCountryFillOpacity(
+  countryKey: string,
+  eventCount: number,
+): number {
+  if (eventCount <= 0) return countryOpacity.noRecords;
+  if (maximumOpacityCountryKeys.has(countryKey)) return countryOpacity.englandAndScotland;
+  return countryOpacity.bands.find((band) => eventCount <= band.maximumEventCount)?.opacity ??
+    countryOpacity.maximum;
 }
 
 export function formatCountryEventCount(count: number): string {

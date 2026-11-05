@@ -39,7 +39,8 @@ Coordinates come directly from the JSON with no country-specific runtime
 position overrides. The center bounding box is expanded by
 the full hex radius in each direction, then uniformly scaled and positioned
 within the available panels on either side of the existing circle. One
-shared scale is the smallest width/height fit across both groups. Both
+shared fitted scale is the smallest width/height fit across both groups, then
+multiplied by `worldHexMapSize` (currently 0.8). Both
 panels therefore have exactly the same hex radius and source aspect ratio.
 Each group remains vertically centered in its panel. Both maps use the same
 horizontal clearance from the circle: the smaller of their originally centered
@@ -83,17 +84,21 @@ or encode relative area.
 | Northern Ireland (United Kingdom) | 52 | 10 | 477.27 | 83.98 | New cell |
 
 New Zealand's schematic positions are stored directly in the JSON. The
-pre-edit and current coordinates are recorded here for provenance:
+original and current coordinates are recorded here for provenance. On
+November 5, 2026, all four cells were moved two original grid-column
+spacings west, leaving two unoccupied hexagon positions between the group and
+Australia while preserving its existing compact arrangement.
 
 | Cell (column/row) | Original x | Original y | Current x | Current y |
 | --- | ---: | ---: | ---: | ---: |
-| North Island 104/47 | 954.55 | 375.28 | 936.3669306221419 | 375.28 |
-| North Island 105/48 | 959.09 | 383.15 | 940.906930622142 | 383.15 |
-| South Island 102/50 | 931.82 | 398.9 | 931.82 | 398.9 |
-| South Island 100/51 | 918.18 | 406.77 | 927.6378940430927 | 406.14362 |
+| North Island 104/47 | 954.55 | 375.28 | 918.1869306221419 | 375.28 |
+| North Island 105/48 | 959.09 | 383.15 | 922.726930622142 | 383.15 |
+| South Island 102/50 | 931.82 | 398.9 | 913.64 | 398.9 |
+| South Island 100/51 | 918.18 | 406.77 | 909.4578940430927 | 406.14362 |
 
-The North Island pair moved west by two original grid-column spacings.
-The lower South Island cell moved immediately southwest of the upper one.
+The North Island pair is four original grid-column spacings west of its
+source positions. The lower South Island cell remains immediately southwest
+of the upper one.
 Their stored center separation is `sqrt(3) × hexRadius × 0.92`, so their
 rendered polygons share an edge with the current 8% radius inset. Changing
 `worldHexGap` changes this contact. Existing border strokes are retained.
@@ -125,6 +130,10 @@ the counting, country-name matching, and opacity scale.
 The panel configuration is `worldHexPanelBox` in
 `src/lib/utils/worldHexMap.ts`: edge padding, clearance from the
 circle, height as a fraction of the container, and minimum usable width.
+The directly adjustable `worldHexMapSize` constant in the same file controls
+the relative size of the whole hex map, including both hexagons and their
+spacing. Use a value from 0 to 1; the current 0.8 displays the maps at 80% of
+their fitted size.
 The existing circle, timeline, month labels, and event arcs are unchanged.
 Both panels remain hidden when either side is narrower than the minimum
 usable width. The wider source bounds of the right group may reduce the

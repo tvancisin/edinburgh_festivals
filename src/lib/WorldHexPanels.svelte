@@ -147,8 +147,9 @@
     Both panels use the same
     hexagon size and a Natural Earth projection. Coastlines are approximate
     at this grid resolution. Higher opacity means more related event records
-    in the current festival selection, using a logarithmic scale. UK nations
-    have separate counts; unspecified UK records are listed separately.
+    in the current festival selection, using four fixed opacity bands. England and
+    Scotland use full opacity when they have positive counts. UK nations have
+    separate counts; unspecified UK records are listed separately.
     Hover, focus, or tap a hexagon for its name and exact count. The country
     representation table provides the counts without using the map.
     Use Tab to enter each panel, arrow keys to move between hexagons, and Escape
@@ -248,8 +249,9 @@
       <p>
         Counts use the Country column, with one count per listed country per
         event record. Multi-country records count toward each listed country.
-        A logarithmic opacity scale separates smaller counts and rescales for
-        each festival selection. Faint hexagons have zero
+        Four fixed count ranges control opacity, after England and Scotland
+        are set to full opacity when they have positive counts.
+        Faint hexagons have zero
         related records. Unspecified UK entries are not assigned to UK nations.
       </p>
       {#if countryRows.length}
