@@ -79,7 +79,7 @@ export const worldHexPanelBox = {
 // Inset each hex radius by 8% to leave a thin gap between neighboring cells.
 export const worldHexGap = 0.08;
 // Relative size of both maps after they are fitted. Adjust from 0 to 1 to preview a smaller map.
-export const worldHexMapSize = 0.8;
+export const worldHexMapSize = 0.85;
 
 let worldHexDataPromise: Promise<WorldHexData> | undefined;
 
@@ -114,7 +114,7 @@ export function createWorldHexData(raw: RawHexWorldFile): WorldHexData {
   };
 }
 
-/** Select exactly the supplied Americas group; do not reclassify territories. */
+/** Select the supplied left-panel group, including restored Pacific island cells. */
 export function filterAmericasHexes(hexes: RawWorldHex[]): RawWorldHex[] {
   return hexes.filter((hex) => hex.group === "americas");
 }

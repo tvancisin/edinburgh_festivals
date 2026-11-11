@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount } from "svelte";
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
+  import LegendGuide from "./LegendGuide.svelte";
   import WorldHexPanels from "./WorldHexPanels.svelte";
   import type {
     WorldHexData,
@@ -35,8 +36,13 @@
   export let worldHexData: WorldHexData | undefined;
   export let worldHexDataStatus: WorldHexDataStatus = "loading";
   export let worldHexDataError = "";
+  export let legendStage: "hidden" | "central" | "world" = "hidden";
 
-  const dispatch = createEventDispatcher<{ ready: void }>();
+  const dispatch = createEventDispatcher<{
+    ready: void;
+    legendNext: void;
+    legendDismiss: void;
+  }>();
 
   const hexBinRadius = 16;
 
@@ -48,7 +54,6 @@
   let circleY = 0;
   let circleRadius = 0;
   let selectedFestivalData: FestivalDataGroup | undefined;
-  let previewFestivalData: FestivalDataGroup | undefined;
   let eventMarkerLayer: L.LayerGroup | undefined;
   let eventMarkerRenderer: L.Canvas | undefined;
   let displayedEvents: FestivalDataGroup["events"] | undefined;
@@ -62,12 +67,12 @@
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
-  $: activeEvents = selectFestivalEvents(festivalData, selectedFestivalData, previewFestivalData);
+  $: activeEvents = selectFestivalEvents(festivalData, selectedFestivalData);
   $: countryCatalog = worldHexData ? createCountryCatalog(worldHexData) : undefined;
   $: countryRepresentation = activeEvents && countryCatalog
     ? aggregateCountryRepresentation(activeEvents, countryCatalog)
     : undefined;
-  $: countryScope = selectedFestivalData?.festival ?? previewFestivalData?.festival ?? "All festivals";
+  $: countryScope = selectedFestivalData?.festival ?? "All festivals";
   $: if (eventMarkerLayer && activeEvents) renderEventHexBins(activeEvents);
   onMount(() => {
     map = L.map(mapElement, {
@@ -110,21 +115,11 @@
   });
 
   function handleFestivalSelect(event: CustomEvent<FestivalDataGroup>) {
-    previewFestivalData = undefined;
     selectedFestivalData = event.detail;
-  }
-
-  function handleFestivalPreview(
-    event: CustomEvent<FestivalDataGroup | undefined>,
-  ) {
-    if (!selectedFestivalData) {
-      previewFestivalData = event.detail;
-    }
   }
 
   function resetFestivalSelection() {
     selectedFestivalData = undefined;
-    previewFestivalData = undefined;
   }
 
   function renderEventHexBins(events: FestivalDataGroup["events"]) {
@@ -240,8 +235,6 @@
       {eventLocationCount} source event records grouped into hexagons
       {selectedFestivalData
         ? `for ${selectedFestivalData.festival}`
-        : previewFestivalData
-          ? `for ${previewFestivalData.festival} while previewing`
         : "across all festivals"}.
     </p>
   {/if}
@@ -269,41 +262,6 @@
       </svg>
     </button>
   {/if}
-  <!-- {#if isLegendVisible}
-    <aside class="timeline-legend" aria-label="Festival timeline help">
-      <button
-        class="legend-dismiss"
-        type="button"
-        aria-label="Hide map legend"
-        on:click={() => (isLegendVisible = false)}
-      >
-        ×
-      </button>
-      <div class="legend-item">
-        <svg class="legend-symbol" width="21" height="21" aria-hidden="true">
-          <polygon
-            points="10.5,1 19.5,6 19.5,15 10.5,20 1.5,15 1.5,6"
-            fill="#006b63"
-            fill-opacity="0.5"
-            stroke="#000000"
-            stroke-width="0.5"
-          />
-        </svg>
-        <span>Venue Locations</span>
-      </div>
-      <div class="legend-item">
-        <svg class="legend-symbol" width="21" height="21" aria-hidden="true">
-          <path
-            d="M 3 18 A 15 15 0 0 1 18 3"
-            fill="none"
-            stroke="#006b63"
-            stroke-width="5.5"
-          />
-        </svg>
-        <span>Festival Periods</span>
-      </div>
-    </aside>
-  {/if} -->
   <div
     class="camera-readout"
     title="Virtual camera altitude assuming a 36.87° vertical FOV and the current map viewport height. Leaflet has no real camera."
@@ -339,7 +297,6 @@
       {festivalData}
       selectedFestivalDataName={selectedFestivalData?.festival ?? null}
       on:select={handleFestivalSelect}
-      on:preview={handleFestivalPreview}
     />
   </svg>
   <WorldHexPanels
@@ -352,6 +309,14 @@
     scope={countryScope}
     countryStatus={festivalDataStatus}
     countryError={festivalDataError}
+  />
+  <LegendGuide
+    stage={legendStage}
+    {circleX}
+    {circleY}
+    {circleRadius}
+    on:next={() => dispatch("legendNext")}
+    on:dismiss={() => dispatch("legendDismiss")}
   />
 </section>
 

@@ -15,7 +15,6 @@
 
   const dispatch = createEventDispatcher<{
     select: FestivalDataGroup;
-    preview: FestivalDataGroup | undefined;
   }>();
 
   const arcThickness = 12;
@@ -150,14 +149,6 @@
     dispatch("select", festivalGroup);
   }
 
-  function previewFestivalArc(festival: FestivalArc) {
-    dispatch("preview", festivalData?.[festival.dataFestival]);
-  }
-
-  function clearFestivalPreview() {
-    dispatch("preview", undefined);
-  }
-
   function handleFestivalArcKeydown(event: KeyboardEvent, festival: FestivalArc) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -250,10 +241,6 @@
       aria-pressed={selectedFestivalDataName === festival.dataFestival}
       class:selected={selectedFestivalDataName === festival.dataFestival}
       on:click={() => handleFestivalArcClick(festival)}
-      on:mouseenter={() => previewFestivalArc(festival)}
-      on:mouseleave={clearFestivalPreview}
-      on:focus={() => previewFestivalArc(festival)}
-      on:blur={clearFestivalPreview}
       on:keydown={(event) => handleFestivalArcKeydown(event, festival)}
     />
     <text

@@ -15,23 +15,72 @@ grid metadata, and remaining records were unchanged by this removal. A
 subsequent user-requested Hawaii addition on the same date brings the current
 file to 1,703 cells, including the requested second Hawaii hexagon. Adding a
 Northern Ireland cell for the requested UK nation representation on the same
-date brings the current total to 1,704 cells.
+date brought the total to 1,704 cells. On November 5, 2026, seven previously
+removed right-panel Pacific island cells were restored and moved to the left
+panel at the user's request, bringing the current total to 1,711 cells.
 
 The public asset is fetched from
 `${import.meta.env.BASE_URL}data/hex-world-110cols.json`. The full file
 remains accessible as `data.raw`. The left panel selects every
-`group === "americas"` cell (566 cells); the right panel selects every
+`group === "americas"` cell (573 cells, including seven restored Pacific islands);
+the right panel selects every
 `group === "rest"` cell (1,138 cells). No runtime island or territory exclusions
 remain. Each loaded cell is rendered when the panels have enough space.
 
-The removed records comprise nine detached Pacific cells on the left,
+The original removals comprised nine detached Pacific cells on the left,
 five western outliers on the right, six cells east of Australia, and the five
 additional territories requested by the user. Only the three wrapped Russia
 cells and the one remote France cell listed in the removal record were
 deleted; those countries' other cells remain. Both Iceland cells and all four
 New Zealand cells remain, as do Alaska, Greenland, the Caribbean, Australia,
 and Papua New Guinea. The separate `Indian Ocean Ter.` record and Georgia
-also remain. The removed records are documented below for provenance.
+also remain. Seven of the original right-panel Pacific removals have since
+been restored in the left panel, as documented below. The other 18 removed
+records remain absent. The original removals are recorded at the end for provenance.
+
+The restored Pacific island cells are stored directly in the JSON with
+`group: "americas"`, which selects the left display panel rather than implying
+a continental classification. They retain their original IDs, names, and
+column/row identifiers. The first placement subtracted 900 from their original
+x coordinates. Later on November 5, at the user's request, those positions
+were corrected using geographic reference points and a Pacific wrap. This
+puts the group farther west of Hawaii and corrects its north-south spacing.
+
+The references checked on November 5, 2026 were the
+[Natural Earth 110m country map](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_admin_0_countries.geojson)
+and the latitude/longitude reference points in
+[mledoze/countries](https://github.com/mledoze/countries/blob/master/countries.json).
+Both were retrieved from their unversioned `master` branches. The downloaded
+Natural Earth GeoJSON has SHA-256
+`6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f`.
+These are placement references only; the app does not fetch them or generate
+new country hexagons from them.
+
+Reference points are projected with D3's `geoNaturalEarth1()` fitted to a
+Sphere in the file's 1,000 × 520-unit extent. For the seven islands at positive
+longitudes, x is shifted west by the projection's full horizontal span
+at that point's latitude: `x - (project([180, lat]).x - project([-180, lat]).x)`.
+The projected y is retained. This latitude-dependent wrap replaces the fixed
+900-unit shift. Coordinates are rounded to two decimals and stored directly
+in the JSON; negative x values intentionally place the islands west of the
+usual world-map edge. Both panels refit with the same shared hex size.
+These are single-cell schematic country markers, not exact island outlines
+or measures of area. Original grid identifiers still identify the source cells,
+even though their x/y positions have changed.
+
+| Restored island | ID | Longitude | Latitude | Current x | Current y |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Solomon Is. | 090 | 159 | -8 | -56.68 | 285.71 |
+| Vanuatu | 548 | 167 | -16 | -29.72 | 311.47 |
+| New Caledonia | 540 | 165.5 | -21.5 | -28.58 | 329.22 |
+| Fiji | 242 | 175 | -18 | -6.12 | 317.92 |
+| Nauru | 520 | 166.91666666 | -0.53333333 | -36.34 | 261.71 |
+| Marshall Is. | 584 | 168 | 9 | -31.33 | 231.07 |
+| Norfolk Island | 574 | 167.95 | -29.03333333 | -12.15 | 353.59 |
+
+These cells use the same hex radius, popup, keyboard/touch access, and
+country-event opacity mapping as all other cells. Restoring them requires no
+runtime island filtering or coordinate overrides.
 
 Every displayed cell retains its raw source record. IDs are normalized to
 strings for country grouping; missing or blank IDs use the supplied name.
@@ -40,7 +89,7 @@ position overrides. The center bounding box is expanded by
 the full hex radius in each direction, then uniformly scaled and positioned
 within the available panels on either side of the existing circle. One
 shared fitted scale is the smallest width/height fit across both groups, then
-multiplied by `worldHexMapSize` (currently 0.8). Both
+multiplied by `worldHexMapSize` (currently 0.85). Both
 panels therefore have exactly the same hex radius and source aspect ratio.
 Each group remains vertically centered in its panel. Both maps use the same
 horizontal clearance from the circle: the smaller of their originally centered
@@ -61,8 +110,15 @@ column 7, row 23, x=72.73 and y=186.33, making a short northwest-to-southeast
 chain with the usual thin gap. Both names are `Hawaii (United States)` for
 the popup and their country ID is 840, matching the other US cells.
 No other record or file metadata changed in these additions;
-Hawaii uses the common hex radius and does not change existing cell
-positions or the shared scale.
+Hawaii uses the common hex radius.
+
+On November 5, 2026, the user also requested that Hawaii be adjusted alongside
+the restored Pacific group. The two cells now follow representative points
+along the Hawaiian island chain: 159.5° W, 22° N for the northwest cell and
+155.5° W, 19.6° N for the southeast cell. Projecting them with the same fitted
+Natural Earth projection gives x=67, y=189.16 and x=75.81, y=196.91,
+respectively. These two schematic markers are stored directly in the JSON;
+their original column/row identifiers, US country IDs, and popup names remain.
 
 At the user's request, the UK is represented schematically by one cell for
 each of Scotland, England, Wales, and Northern Ireland. The three existing
@@ -132,17 +188,19 @@ The panel configuration is `worldHexPanelBox` in
 circle, height as a fraction of the container, and minimum usable width.
 The directly adjustable `worldHexMapSize` constant in the same file controls
 the relative size of the whole hex map, including both hexagons and their
-spacing. Use a value from 0 to 1; the current 0.8 displays the maps at 80% of
+spacing. Use a value from 0 to 1; the current 0.85 displays the maps at 85% of
 their fitted size.
 The existing circle, timeline, month labels, and event arcs are unchanged.
 Both panels remain hidden when either side is narrower than the minimum
 usable width. The wider source bounds of the right group may reduce the
 shared scale compared with displaying the Americas alone.
 
-The 25 records removed from the JSON on November 3, 2026 are recorded here.
+The 25 records originally removed from the JSON on November 3, 2026 are recorded here.
 Names, country IDs, groups, grid identifiers, and centers are the original
 values. The removal changed file membership only; retained records stayed in
-their original order with their existing values.
+their original order with their existing values. Seven Pacific cells in this
+historical table were restored on November 5 as described above; this table
+retains their original right-panel coordinates and group for provenance.
 
 | Name | ID | Group | Column | Row | x | y |
 | --- | --- | --- | ---: | ---: | ---: | ---: |

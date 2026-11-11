@@ -137,9 +137,10 @@
     World hex maps on both sides of Edinburgh
   </title>
   <desc id="world-hex-map-description">
-    The Americas appear on the left with detached Pacific islands omitted.
+    The Americas and seven restored western Pacific islands appear on the left.
+    These islands wrap across the Pacific map edge, west of Hawaii.
     The remaining world appears on the right with detached western outliers
-    and islands east of Australia omitted; Iceland and New Zealand are retained.
+    omitted; Iceland and New Zealand are retained.
     Selected remote territories are also omitted.
     New Zealand's island spacing is adjusted schematically.
     Hawaii is represented by two schematic hexagons in the Americas panel.
@@ -163,7 +164,7 @@
       data-world-group={layout.group}
     >
       <title id={`world-hex-${layout.group}-title`}>
-        {layout.group === "americas" ? "Americas" : "Rest of the world"}:
+        {layout.group === "americas" ? "Americas and Pacific islands" : "Rest of the world"}:
         {layout.cells.length} hexagons, using the same scale as the opposite panel.
       </title>
     <g class="hex-cells">

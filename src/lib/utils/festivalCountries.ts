@@ -167,16 +167,14 @@ export function relateEventCountries(event: FestivalData, catalog: CountryCatalo
   };
 }
 
-/** Selected arcs take precedence over previews. No venue-coordinate filtering
+/** Selection determines the active event rows. No venue-coordinate filtering
  * applies to country counts; resetting selection restores every loaded row.
  */
 export function selectFestivalEvents(
   groups: FestivalDataByFestival | undefined,
   selected?: FestivalDataGroup,
-  preview?: FestivalDataGroup,
 ): FestivalData[] | undefined {
   if (selected) return selected.events;
-  if (preview) return preview.events;
   return groups ? Object.values(groups).flatMap((group) => group.events) : undefined;
 }
 

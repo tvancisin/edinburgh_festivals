@@ -7,13 +7,35 @@
     type WorldHexDataStatus,
   } from "./lib/utils/worldHexMap";
   import Map from "./lib/Map.svelte";
+  import FestivalHistory from "./lib/FestivalHistory.svelte";
+  import { festivals } from "./lib/utils/festivals.js";
+  import {
+    calculateFestivalHistoryHorizontalMargin,
+    calculateFestivalHistoryVerticalLayout,
+  } from "./lib/utils/festivalHistory";
 
   // todo
-  // same location circles spread
+  // performers geo
+  // customers geo
+
+  // FEST 2025 |  API(geo) | TICKET (geo)
+  // Hogmanay  |   x(-)    |   -
+  // Science   |   x(-)    |   -
+  // Children  |   x(x)    |   -
+  // Jazz      |   x(-)    |   -
+  // Fringe    |   x(x)    |   x
+  // Inter.    |   x(-)    |   x(x postcode)
+  // Tatoo     |   x(-)    |   x(x country)
+  // Art       |   x(-)    |   -
+  // Book      |   x(-)    |   x
+  // Film      |   x(x)    |   -
+  // Story     |   x(-)    |   -
 
   type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
+  type LegendStage = "hidden" | "central" | "world";
 
   let showExplorer = false;
+  let legendStage: LegendStage = "hidden";
   let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
   let festivalDataStatus: FestivalDataStatus = "loading";
   let festivalDataError = "";
@@ -26,6 +48,8 @@
   let isMapLoaded = false;
   let isInitialScreenReady = false;
   let loadingProgress = 0;
+  let mainHeight = 0;
+  let mainWidth = 0;
   const basePath = import.meta.env.BASE_URL;
 
   onMount(() => {
@@ -40,9 +64,30 @@
     (isMapLoaded ? 33 : 0);
   $: isInitialScreenReady =
     isFestivalDataLoaded && areFontsLoaded && isMapLoaded;
+  $: historyVerticalLayout = calculateFestivalHistoryVerticalLayout(
+    mainHeight,
+    festivals.length,
+  );
+  $: introHorizontalPadding = Math.min(32, Math.max(16, mainWidth * 0.04));
+  $: introLeftOffset = Math.max(
+    0,
+    calculateFestivalHistoryHorizontalMargin(mainWidth) - introHorizontalPadding,
+  );
+  $: introWidth = Math.max(0, mainWidth - introLeftOffset);
+  $: introBottomOffset = Math.max(
+    0,
+    mainHeight -
+      (historyVerticalLayout.timelineGroupStart +
+        historyVerticalLayout.timelineGroupHeight),
+  );
 
   function dismissInitialScreen() {
     isInitialScreenVisible = false;
+  }
+
+  function showDataExplorer() {
+    showExplorer = true;
+    legendStage = "central";
   }
 
   async function fetchFestivalData() {
@@ -71,9 +116,10 @@
   async function fetchWorldHexData() {
     try {
       worldHexData = await loadWorldHexData();
-      worldHexDataStatus = worldHexData.americasHexes.length + worldHexData.restHexes.length > 0
-        ? "ready"
-        : "empty";
+      worldHexDataStatus =
+        worldHexData.americasHexes.length + worldHexData.restHexes.length > 0
+          ? "ready"
+          : "empty";
     } catch (error) {
       worldHexDataStatus = "error";
       worldHexDataError =
@@ -86,7 +132,6 @@
   }
 
   $: console.log(worldHexData);
-  
 </script>
 
 <svelte:head>
@@ -151,8 +196,17 @@
   {/if}
 </p>
 
-<main id="main-content" class:landing={!showExplorer}>
-  <div class="map-shell" class:map-hidden={!showExplorer} aria-hidden={!showExplorer}>
+<main
+  id="main-content"
+  class:landing={!showExplorer}
+  bind:clientHeight={mainHeight}
+  bind:clientWidth={mainWidth}
+>
+  <div
+    class="map-shell"
+    class:map-hidden={!showExplorer}
+    aria-hidden={!showExplorer}
+  >
     <Map
       {festivalData}
       {festivalDataStatus}
@@ -160,18 +214,27 @@
       {worldHexData}
       {worldHexDataStatus}
       {worldHexDataError}
+      {legendStage}
       on:ready={handleMapLoaded}
+      on:legendNext={() => (legendStage = "world")}
+      on:legendDismiss={() => (legendStage = "hidden")}
     />
   </div>
   {#if !showExplorer}
-    <section class="intro" aria-labelledby="page-title">
-      <!-- <p class="eyebrow">Festival data explorer</p> -->
+    <div class="history-shell">
+      <FestivalHistory />
+    </div>
+  {/if}
+  {#if !showExplorer}
+    <section
+      class="intro"
+      aria-labelledby="page-title"
+      style:bottom={`${introBottomOffset}px`}
+      style:left={`${introLeftOffset}px`}
+      style:width={`${introWidth}px`}
+    >
       <h1 id="page-title">Edinburgh Festivals</h1>
-      <button
-        class="explore-button"
-        type="button"
-        on:click={() => (showExplorer = true)}
-      >
+      <button class="explore-button" type="button" on:click={showDataExplorer}>
         Explore the data
       </button>
     </section>
@@ -188,7 +251,7 @@
 
   .landing {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
   }
 
   .map-shell {
@@ -199,6 +262,11 @@
   .map-hidden {
     visibility: hidden;
     pointer-events: none;
+  }
+
+  .history-shell {
+    position: absolute;
+    inset: 0;
   }
 
   .initial-screen {
@@ -278,11 +346,13 @@
   }
 
   .intro {
-    position: relative;
+    position: absolute;
     z-index: 1;
     max-width: 48rem;
     width: 100%;
-    padding: clamp(4rem, 12vw, 9rem) clamp(1rem, 4vw, 2rem);
+    padding: clamp(4rem, 12vw, 9rem) clamp(1rem, 4vw, 2rem) 0;
+    bottom: 0;
+    left: 0;
   }
 
   .data-status {

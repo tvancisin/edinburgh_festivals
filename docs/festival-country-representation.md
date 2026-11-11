@@ -74,9 +74,9 @@ the table and screen-reader summary provide alternatives to interpreting
 opacity. The table remains available when narrow layouts hide the hex panels.
 
 `Map.svelte` derives one active event collection using `selectFestivalEvents`.
-A clicked festival arc takes precedence over hover/focus previews. Before an
-arc is selected, previews update both the world map and the central venue
-map. The reset button clears selection and preview, restoring all festivals.
+Hovering or focusing a festival arc only highlights that arc. Clicking an arc
+updates both the world map and the central venue map; the reset button clears
+that selection and restores all festivals.
 Country aggregation uses the full active collection; the existing venue map
 separately filters out rows without coordinates. An empty selection shows
 zero counts rather than falling back to all festivals. This change introduces
