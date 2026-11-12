@@ -1,6 +1,19 @@
 import * as d3 from "d3";
-import type { FestivalData, FestivalDataByFestival, FestivalDataGroup, RawFestivalData } from "./festivalData";
-import type { RawWorldHex, WorldHexCell, WorldHexData, WorldHexLayout, WorldHexPanelLayout } from "./worldHexMap";
+import { worldCountryStripGap } from "./worldHexMap";
+import type {
+  FestivalData,
+  FestivalDataByFestival,
+  FestivalDataGroup,
+  RawFestivalData,
+} from "./festivalData";
+import type {
+  RawWorldHex,
+  WorldCountryStripCell,
+  WorldHexCell,
+  WorldHexData,
+  WorldHexLayout,
+  WorldHexPanelLayout,
+} from "./worldHexMap";
 
 export type CountryTarget = {
   key: string;
@@ -34,7 +47,11 @@ export type CountryRepresentation = {
   eventCount: number;
   missingCountryCount: number;
   unmatchedEventCount: number;
-  unmatchedValues: { value: string; eventCount: number; raw: RawFestivalData[] }[];
+  unmatchedValues: {
+    value: string;
+    eventCount: number;
+    raw: RawFestivalData[];
+  }[];
   maximumEventCount: number;
   relations: EventCountryRelation[];
   raw: RawFestivalData[];
@@ -48,7 +65,14 @@ export type RepresentedWorldHexCell = WorldHexCell & {
 };
 
 export type RepresentedWorldHexLayout = Omit<WorldHexLayout, "panels"> & {
-  panels: (Omit<WorldHexPanelLayout, "cells"> & { cells: RepresentedWorldHexCell[] })[];
+  panels: (Omit<WorldHexPanelLayout, "cells"> & {
+    cells: RepresentedWorldHexCell[];
+  })[];
+};
+
+export type RepresentedWorldCountryStripCell = WorldCountryStripCell & {
+  hasEventData: boolean;
+  fillOpacity: number;
 };
 
 export type CountryOpacityBand = {
@@ -95,16 +119,26 @@ export const festivalCountryAliases: Record<string, string> = {
 
 /** Normalize comparison keys only; retain source Country strings on raw rows. */
 export function normalizeCountryName(value: string): string {
-  return value.normalize("NFKD").replace(/\p{Diacritic}/gu, "")
-    .trim().toUpperCase().replace(/[().]/g, "").replace(/\s+/g, " ");
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[().]/g, "")
+    .replace(/\s+/g, " ");
 }
 
 /** UK nation names have separate join keys; all other cells join by country ID.
  * Hawaii shares the US count. Unspecified UK rows never imply a UK nation.
  */
-export function getHexCountryKey(cell: Pick<WorldHexCell, "countryId" | "countryName">): string {
+export function getHexCountryKey(
+  cell: Pick<WorldHexCell, "countryId" | "countryName">,
+): string {
   if (cell.countryId === "826") {
-    const nation = normalizeCountryName(cell.countryName).replace(/ UNITED KINGDOM$/, "");
+    const nation = normalizeCountryName(cell.countryName).replace(
+      / UNITED KINGDOM$/,
+      "",
+    );
     return ukNationKeys[nation] ?? "826";
   }
   return cell.countryId ?? normalizeCountryName(cell.countryName);
@@ -118,11 +152,20 @@ export function createCountryCatalog(data: WorldHexData): CountryCatalog {
     const key = getHexCountryKey(hex);
     const target = targets.get(key);
     if (target) target.raw.push(hex.raw);
-    else targets.set(key, { key, name: hex.countryName, hasHexagons: true, raw: [hex.raw] });
+    else
+      targets.set(key, {
+        key,
+        name: hex.countryName,
+        hasHexagons: true,
+        raw: [hex.raw],
+      });
     aliases.set(normalizeCountryName(hex.countryName), key);
   }
   targets.set("826", {
-    key: "826", name: "United Kingdom (nation unspecified)", hasHexagons: false, raw: [],
+    key: "826",
+    name: "United Kingdom (nation unspecified)",
+    hasHexagons: false,
+    raw: [],
   });
   for (const [alias, key] of Object.entries(festivalCountryAliases)) {
     if (targets.has(key)) aliases.set(alias, key);
@@ -141,18 +184,29 @@ export function createCountryCatalog(data: WorldHexData): CountryCatalog {
  * Blank and explicitly undeclared values contribute no country assignment.
  */
 export function splitEventCountryValues(value: string): string[] {
-  const missing = new Set(["", "COUNTRY NOT DECLARED", "NOT DECLARED", "UNKNOWN", "N/A"]);
+  const missing = new Set([
+    "",
+    "COUNTRY NOT DECLARED",
+    "NOT DECLARED",
+    "UNKNOWN",
+    "N/A",
+  ]);
   if (missing.has(normalizeCountryName(value))) return [];
-  return value.replace(/korea\s*,\s*republic of/gi, "South Korea")
+  return value
+    .replace(/korea\s*,\s*republic of/gi, "South Korea")
     .replace(/\bN\/A\b/gi, "COUNTRY NOT DECLARED")
-    .split(/[,/;]/).map((part) => part.trim())
+    .split(/[,/;]/)
+    .map((part) => part.trim())
     .filter((part) => !missing.has(normalizeCountryName(part)));
 }
 
 /** Count a source event row at most once per resolved country/nation, retaining
  * every event row, including duplicate IDs. Unknown labels remain reportable.
  */
-export function relateEventCountries(event: FestivalData, catalog: CountryCatalog): EventCountryRelation {
+export function relateEventCountries(
+  event: FestivalData,
+  catalog: CountryCatalog,
+): EventCountryRelation {
   const values = splitEventCountryValues(event.country);
   const keys = new Set<string>();
   const unmatched = new Set<string>();
@@ -162,8 +216,11 @@ export function relateEventCountries(event: FestivalData, catalog: CountryCatalo
     else unmatched.add(value);
   }
   return {
-    event, countryKeys: [...keys], unmatchedValues: [...unmatched],
-    hasDeclaredCountry: values.length > 0, raw: event.raw,
+    event,
+    countryKeys: [...keys],
+    unmatchedValues: [...unmatched],
+    hasDeclaredCountry: values.length > 0,
+    raw: event.raw,
   };
 }
 
@@ -175,7 +232,9 @@ export function selectFestivalEvents(
   selected?: FestivalDataGroup,
 ): FestivalData[] | undefined {
   if (selected) return selected.events;
-  return groups ? Object.values(groups).flatMap((group) => group.events) : undefined;
+  return groups
+    ? Object.values(groups).flatMap((group) => group.events)
+    : undefined;
 }
 
 /** Aggregate one full count per country per row; multi-country totals can exceed
@@ -183,7 +242,10 @@ export function selectFestivalEvents(
  * four fixed count ranges. Generic UK rows are listed separately and never
  * shaded as nations.
  */
-export function aggregateCountryRepresentation(events: FestivalData[], catalog: CountryCatalog): CountryRepresentation {
+export function aggregateCountryRepresentation(
+  events: FestivalData[],
+  catalog: CountryCatalog,
+): CountryRepresentation {
   const relations = events.map((event) => relateEventCountries(event, catalog));
   const rowsByKey = new Map<string, RawFestivalData[]>();
   const unmatched = new Map<string, RawFestivalData[]>();
@@ -199,22 +261,43 @@ export function aggregateCountryRepresentation(events: FestivalData[], catalog: 
       unmatched.set(value, rows);
     }
   }
-  const maximumEventCount = d3.max([...catalog.targets.values()]
-    .filter((target) => target.hasHexagons), (target) => rowsByKey.get(target.key)?.length ?? 0) ?? 0;
-  const countries = [...catalog.targets.values()].map((target): CountryEventCount => {
-    const eventRows = rowsByKey.get(target.key) ?? [];
-    return {
-      ...target, eventRows, eventCount: eventRows.length,
-      fillOpacity: getCountryFillOpacity(target.key, eventRows.length),
-    };
-  }).sort((a, b) => b.eventCount - a.eventCount || a.name.localeCompare(b.name, "en"));
+  const maximumEventCount =
+    d3.max(
+      [...catalog.targets.values()].filter((target) => target.hasHexagons),
+      (target) => rowsByKey.get(target.key)?.length ?? 0,
+    ) ?? 0;
+  const countries = [...catalog.targets.values()]
+    .map((target): CountryEventCount => {
+      const eventRows = rowsByKey.get(target.key) ?? [];
+      return {
+        ...target,
+        eventRows,
+        eventCount: eventRows.length,
+        fillOpacity: getCountryFillOpacity(target.key, eventRows.length),
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.eventCount - a.eventCount || a.name.localeCompare(b.name, "en"),
+    );
   return {
-    countries, byKey: new Map(countries.map((country) => [country.key, country])),
+    countries,
+    byKey: new Map(countries.map((country) => [country.key, country])),
     eventCount: events.length,
-    missingCountryCount: relations.filter((relation) => !relation.hasDeclaredCountry).length,
-    unmatchedEventCount: relations.filter((relation) => relation.unmatchedValues.length > 0).length,
-    unmatchedValues: [...unmatched].map(([value, raw]) => ({ value, eventCount: raw.length, raw })),
-    maximumEventCount, relations, raw: events.map((event) => event.raw),
+    missingCountryCount: relations.filter(
+      (relation) => !relation.hasDeclaredCountry,
+    ).length,
+    unmatchedEventCount: relations.filter(
+      (relation) => relation.unmatchedValues.length > 0,
+    ).length,
+    unmatchedValues: [...unmatched].map(([value, raw]) => ({
+      value,
+      eventCount: raw.length,
+      raw,
+    })),
+    maximumEventCount,
+    relations,
+    raw: events.map((event) => event.raw),
   };
 }
 
@@ -224,9 +307,12 @@ export function getCountryFillOpacity(
   eventCount: number,
 ): number {
   if (eventCount <= 0) return countryOpacity.noRecords;
-  if (maximumOpacityCountryKeys.has(countryKey)) return countryOpacity.englandAndScotland;
-  return countryOpacity.bands.find((band) => eventCount <= band.maximumEventCount)?.opacity ??
-    countryOpacity.maximum;
+  if (maximumOpacityCountryKeys.has(countryKey))
+    return countryOpacity.englandAndScotland;
+  return (
+    countryOpacity.bands.find((band) => eventCount <= band.maximumEventCount)
+      ?.opacity ?? countryOpacity.maximum
+  );
 }
 
 export function formatCountryEventCount(count: number): string {
@@ -245,7 +331,8 @@ export function addCountryRepresentationToLayout(
     panels: layout.panels.map((panel) => ({
       ...panel,
       cells: panel.cells.map((cell) => {
-        const count = representation?.byKey.get(getHexCountryKey(cell))?.eventCount ?? 0;
+        const count =
+          representation?.byKey.get(getHexCountryKey(cell))?.eventCount ?? 0;
         const eventCountLabel = representation
           ? `${formatCountryEventCount(count)} · ${scope}`
           : "Country counts are unavailable.";
@@ -253,31 +340,89 @@ export function addCountryRepresentationToLayout(
           ...cell,
           eventCount: representation ? count : null,
           fillOpacity: representation
-            ? representation.byKey.get(getHexCountryKey(cell))?.fillOpacity ?? countryOpacity.noRecords
+            ? (representation.byKey.get(getHexCountryKey(cell))?.fillOpacity ??
+              countryOpacity.noRecords)
             : countryOpacity.noRecords,
-          eventCountLabel, accessibleLabel: `${cell.countryName}: ${eventCountLabel}`,
+          eventCountLabel,
+          accessibleLabel: `${cell.countryName}: ${eventCountLabel}`,
         };
       }),
     })),
   };
 }
 
-/** Concise written equivalent; detailed counts remain available in the table. */
-export function describeCountryRepresentation(data: CountryRepresentation, scope: string): string {
-  const represented = data.countries.filter((country) => country.hasHexagons && country.eventCount > 0);
-  const leader = represented[0];
-  const uk = data.byKey.get("826")?.eventCount ?? 0;
-  return `${scope}: ${data.eventCount.toLocaleString("en-US")} event records; ` +
-    `${represented.length} countries or UK nations represented on the map. ` +
-    (leader ? `Largest count: ${leader.name}, ${formatCountryEventCount(leader.eventCount)}. ` : "No mapped country associations. ") +
-    `${data.missingCountryCount.toLocaleString("en-US")} records have no declared country; ` +
-    `${data.unmatchedEventCount} have unmatched country values. ` +
-    `${uk} UK records do not specify a nation and are listed separately.`;
+/**
+ * Mark each country-strip rectangle as represented when any source hex for
+ * that country has a positive event count, then place represented countries
+ * before unrepresented countries within their existing continent group. This
+ * retains the separate UK nation matching used by the map while the strip
+ * displays one UK rectangle.
+ */
+export function addCountryRepresentationToStrip(
+  countries: WorldCountryStripCell[],
+  representation: CountryRepresentation | undefined,
+): RepresentedWorldCountryStripCell[] {
+  const representedCountries = countries.map((country) => {
+    const hasEventData = representation
+      ? country.raw.some((raw) => {
+        const countryId = raw.id == null || String(raw.id).trim() === ""
+          ? null
+          : String(raw.id);
+        return (representation.byKey.get(getHexCountryKey({
+          countryId,
+          countryName: raw.name,
+        }))?.eventCount ?? 0) > 0;
+      })
+      : false;
+    return {
+      ...country,
+      hasEventData,
+      fillOpacity: hasEventData ? 1 : countryOpacity.noRecords,
+    };
+  });
+  const byContinent = new Map<WorldCountryStripCell["continent"], RepresentedWorldCountryStripCell[]>();
+  for (const country of representedCountries) {
+    const members = byContinent.get(country.continent) ?? [];
+    members.push(country);
+    byContinent.set(country.continent, members);
+  }
+  const orderedCountries = [...byContinent.values()].flatMap((members) =>
+    members.sort((first, second) => Number(second.hasEventData) - Number(first.hasEventData)),
+  );
+  const stripWidth = d3.sum(countries, (country) => country.width) +
+    worldCountryStripGap * Math.max(0, countries.length - 1);
+  const availableWidth = Math.max(
+    0,
+    stripWidth - worldCountryStripGap * Math.max(0, orderedCountries.length - 1),
+  );
+  const position = d3.scaleLinear()
+    .domain([0, orderedCountries.length])
+    .range([0, availableWidth]);
+  return orderedCountries.map((country, index) => ({
+    ...country,
+    x: position(index) + index * worldCountryStripGap,
+    width: Math.max(0, position(index + 1) - position(index)),
+  }));
 }
 
-/** Positive rows only for the concise table; zero counts remain in the full
- * aggregate and are exposed by each hexagon's accessible name and popup.
- */
-export function listRepresentedCountries(data: CountryRepresentation): CountryEventCount[] {
-  return data.countries.filter((country) => country.eventCount > 0);
+/** Concise written equivalent; detailed counts remain available in the table. */
+export function describeCountryRepresentation(
+  data: CountryRepresentation,
+  scope: string,
+): string {
+  const represented = data.countries.filter(
+    (country) => country.hasHexagons && country.eventCount > 0,
+  );
+  const leader = represented[0];
+  const uk = data.byKey.get("826")?.eventCount ?? 0;
+  return (
+    `${scope}: ${data.eventCount.toLocaleString("en-US")} event records; ` +
+    `${represented.length} countries or UK nations represented on the map. ` +
+    (leader
+      ? `Largest count: ${leader.name}, ${formatCountryEventCount(leader.eventCount)}. `
+      : "No mapped country associations. ") +
+    `${data.missingCountryCount.toLocaleString("en-US")} records have no declared country; ` +
+    `${data.unmatchedEventCount} have unmatched country values. ` +
+    `${uk} UK records do not specify a nation and are listed separately.`
+  );
 }

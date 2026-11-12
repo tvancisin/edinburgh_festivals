@@ -13,7 +13,6 @@
   import {
     addCountryRepresentationToLayout,
     describeCountryRepresentation,
-    listRepresentedCountries,
     type CountryRepresentation,
     type RepresentedWorldHexCell,
   } from "./utils/festivalCountries";
@@ -25,8 +24,6 @@
   export let error = "";
   export let representation: CountryRepresentation | undefined;
   export let scope = "All festivals";
-  export let countryStatus: WorldHexDataStatus = "loading";
-  export let countryError = "";
 
   let width = 0;
   let height = 0;
@@ -49,7 +46,6 @@
   $: statusPanel = getWorldHexPanelBox("americas", width, height, circleX, circleRadius);
   $: displayLayout = addCountryRepresentationToLayout(hexLayout, representation, scope);
   $: countryDescription = representation ? describeCountryRepresentation(representation, scope) : "";
-  $: countryRows = representation ? listRepresentedCountries(representation) : [];
   $: tooltipPosition = activeCell
     ? getWorldHexTooltipPosition(activeCell, width, height, tooltipWidth, tooltipHeight,
       hexLayout?.hexRadius ?? 0)
@@ -114,6 +110,9 @@
       )?.focus({ preventScroll: true });
     }
   }
+
+  $:console.log(displayLayout);
+  
 </script>
 
 <svelte:window
@@ -225,60 +224,6 @@
   </div>
 {/if}
 <p class="visually-hidden" aria-live="polite">{countryDescription}</p>
-<details class="country-key">
-  <summary>
-    <span>{scope} · Country counts</span>
-    <span class="key-hint">
-      {#if countryStatus === "error" || status === "error"}
-        Country counts are unavailable
-      {:else if !representation}
-        Loading country counts…
-      {:else}
-        Darker hexagons mean more event records
-      {/if}
-    </span>
-  </summary>
-  <div class="country-counts" style:max-height={`${Math.max(120, height * 0.45)}px`}>
-    {#if countryStatus === "error"}
-      <p role="status">Country counts could not be loaded: {countryError}</p>
-    {:else if status === "error"}
-      <p role="status">Country matching is unavailable while the world map could not be loaded.</p>
-    {:else if !representation}
-      <p role="status">Loading country counts…</p>
-    {:else}
-      <p>{countryDescription}</p>
-      <p>
-        Counts use the Country column, with one count per listed country per
-        event record. Multi-country records count toward each listed country.
-        Four fixed count ranges control opacity, after England and Scotland
-        are set to full opacity when they have positive counts.
-        Faint hexagons have zero
-        related records. Unspecified UK entries are not assigned to UK nations.
-      </p>
-      {#if countryRows.length}
-        <table>
-          <caption>Related event records · {scope}</caption>
-          <thead><tr><th scope="col">Country or UK nation</th><th scope="col">Records</th></tr></thead>
-          <tbody>
-            {#each countryRows as country (country.key)}
-              <tr><th scope="row">{country.name}</th><td>{country.eventCount.toLocaleString("en-US")}</td></tr>
-            {/each}
-          </tbody>
-        </table>
-      {:else}
-        <p>No country associations are available for these event records.</p>
-      {/if}
-      {#if representation.unmatchedValues.length}
-        <p>Unmatched source values:</p>
-        <ul>
-          {#each representation.unmatchedValues as unmatched (unmatched.value)}
-            <li>{unmatched.value}: {unmatched.eventCount} event records</li>
-          {/each}
-        </ul>
-      {/if}
-    {/if}
-  </div>
-</details>
 {#if status !== "ready"}
   <p
     class="data-status"
@@ -352,71 +297,6 @@
     font-weight: 400;
   }
 
-  .country-key {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    width: max-content;
-    max-width: min(32rem, calc(100% - 2rem));
-    border: 1px solid #252525;
-    border-radius: 0.25rem;
-    background: #f8f7f4;
-    color: #252525;
-    font-size: 0.75rem;
-    pointer-events: auto;
-  }
-
-  .country-key summary {
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  .country-key summary:focus-visible {
-    outline: 2px solid #252525;
-    outline-offset: 2px;
-  }
-
-  .key-hint {
-    display: block;
-    margin-top: 0.125rem;
-    font-weight: 400;
-  }
-
-  .country-counts {
-    overflow: auto;
-    padding: 0 0.75rem 0.75rem;
-    overflow-wrap: anywhere;
-  }
-
-  .country-counts p {
-    margin: 0.5rem 0;
-    line-height: 1.5;
-  }
-
-  .country-counts table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .country-counts caption {
-    padding: 0.5rem 0;
-    text-align: left;
-    font-weight: 700;
-  }
-
-  .country-counts th,
-  .country-counts td {
-    padding: 0.375rem;
-    border-bottom: 1px solid #d9d9d9;
-    text-align: left;
-  }
-
-  .country-counts td {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
   .visually-hidden {
     position: absolute;
     width: 1px;
@@ -424,14 +304,6 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-
-  @media (max-width: 42rem) {
-    .country-key {
-      top: 4rem;
-      right: 0.5rem;
-      max-width: min(32rem, calc(100% - 1rem));
-    }
   }
 
   svg {

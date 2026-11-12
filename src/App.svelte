@@ -171,17 +171,18 @@
   </div>
 {/if}
 
-<a
-  class="logo"
-  class:compact={showExplorer}
-  href={basePath}
-  aria-label="Edinburgh Festivals home"
->
-  <img
-    src={`${basePath}/img/efi_dlm_logo_black.svg`}
-    alt="Edinburgh Futures Institute logo"
-  />
-</a>
+{#if !showExplorer}
+  <a
+    class="logo"
+    href={basePath}
+    aria-label="Edinburgh Festivals home"
+  >
+    <img
+      src={`${basePath}/img/efi_dlm_logo_black.svg`}
+      alt="Edinburgh Futures Institute logo"
+    />
+  </a>
+{/if}
 
 <p class="data-status" aria-live="polite">
   {#if festivalDataStatus === "loading"}
@@ -209,8 +210,6 @@
   >
     <Map
       {festivalData}
-      {festivalDataStatus}
-      {festivalDataError}
       {worldHexData}
       {worldHexDataStatus}
       {worldHexDataError}
@@ -339,10 +338,6 @@
     display: block;
     width: auto;
     height: 100%;
-  }
-
-  .logo.compact {
-    height: clamp(1.75rem, 6vw, 2.75rem);
   }
 
   .intro {

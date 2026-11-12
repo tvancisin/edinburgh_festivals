@@ -1,5 +1,13 @@
 import * as d3 from "d3";
 
+export type Continent =
+  | "Africa"
+  | "Asia"
+  | "Europe"
+  | "North America"
+  | "Oceania"
+  | "South America";
+
 export type RawWorldHex = {
   col: number;
   row: number;
@@ -7,6 +15,7 @@ export type RawWorldHex = {
   y: number;
   id?: string | number | null;
   name: string;
+  continent: Continent;
   group: "americas" | "rest";
 };
 
@@ -28,6 +37,7 @@ export type WorldHex = {
   countryId: string | null;
   countryKey: string;
   countryName: string;
+  continent: Continent;
   group: RawWorldHex["group"];
   raw: RawWorldHex;
 };
@@ -68,6 +78,33 @@ export type WorldHexLayout = {
 };
 
 export type WorldHexDataStatus = "loading" | "ready" | "empty" | "error";
+
+export type WorldCountryStripCell = {
+  countryKey: string;
+  countryName: string;
+  continent: Continent;
+  x: number;
+  width: number;
+  raw: RawWorldHex[];
+};
+
+export type WorldContinentStripCell = {
+  continent: Continent;
+  x: number;
+  width: number;
+  countries: WorldCountryStripCell[];
+};
+
+export const continentOrder: Continent[] = [
+  "North America",
+  "South America",
+  "Europe",
+  "Africa",
+  "Asia",
+  "Oceania",
+];
+
+export const worldCountryStripGap = 1;
 
 // Panel dimensions are constrained by the existing circle.
 export const worldHexPanelBox = {
@@ -136,9 +173,80 @@ export function toWorldHex(raw: RawWorldHex): WorldHex {
     countryId,
     countryKey: countryId ?? raw.name,
     countryName: raw.name,
+    continent: raw.continent,
     group: raw.group,
     raw,
   };
+}
+
+/**
+ * Keep one country per supplied identifier, in the order it first occurs in
+ * the source grid. Each layout cell retains every original hex that formed it.
+ */
+export function createWorldCountryStrip(
+  data: WorldHexData | undefined,
+  width: number,
+): WorldCountryStripCell[] {
+  if (!data || width <= 0) return [];
+
+  const countries = new Map<string, {
+    countryName: string;
+    continent: Continent;
+    raw: RawWorldHex[];
+  }>();
+  for (const hex of data.raw.hexes) {
+    const countryKey = hex.id == null || String(hex.id).trim() === ""
+      ? hex.name
+      : String(hex.id);
+    const country = countries.get(countryKey);
+    if (country) country.raw.push(hex);
+    else countries.set(countryKey, {
+      countryName: hex.name,
+      continent: hex.continent,
+      raw: [hex],
+    });
+  }
+
+  const entries = [...countries.entries()].sort(([, first], [, second]) =>
+    continentOrder.indexOf(first.continent) - continentOrder.indexOf(second.continent),
+  );
+  const availableWidth = Math.max(0, width - worldCountryStripGap * (entries.length - 1));
+  const position = d3.scaleLinear()
+    .domain([0, entries.length])
+    .range([0, availableWidth]);
+
+  return entries.map(([countryKey, country], index) => ({
+    countryKey,
+    countryName: country.countryName,
+    continent: country.continent,
+    x: position(index) + index * worldCountryStripGap,
+    width: Math.max(0, position(index + 1) - position(index)),
+    raw: country.raw,
+  }));
+}
+
+/** Group the already ordered country strip into contiguous continent spans. */
+export function createWorldContinentStrip(
+  countries: WorldCountryStripCell[],
+): WorldContinentStripCell[] {
+  const spans = new Map<Continent, WorldCountryStripCell[]>();
+  for (const country of countries) {
+    const members = spans.get(country.continent) ?? [];
+    members.push(country);
+    spans.set(country.continent, members);
+  }
+  return continentOrder.flatMap((continent) => {
+    const members = spans.get(continent);
+    if (!members?.length) return [];
+    const first = members[0];
+    const last = members[members.length - 1];
+    return [{
+      continent,
+      x: first.x,
+      width: last.x + last.width - first.x,
+      countries: members,
+    }];
+  });
 }
 
 export function getWorldHexPanelBox(
@@ -331,6 +439,7 @@ function isRawWorldHex(value: unknown): value is RawWorldHex {
   return [hex.col, hex.row, hex.x, hex.y].every((coordinate) =>
     typeof coordinate === "number" && Number.isFinite(coordinate)) &&
     typeof hex.name === "string" &&
+    continentOrder.includes(hex.continent as Continent) &&
     (hex.group === "americas" || hex.group === "rest") &&
     (hex.id == null || typeof hex.id === "string" ||
       (typeof hex.id === "number" && Number.isFinite(hex.id)));

@@ -17,6 +17,11 @@
   const pandemicEndYear = 2021;
   const dataBarHeight = 12;
   const timelineEndYear = Math.max(currentYear, eventDataEndYear) + 1;
+  const randomPointPosition = d3.randomUniform(0.08, 0.92);
+  const randomPointOffset = d3.randomUniform(-0.3, 0.3);
+  const handwrittenTimelinePoints = timelines.map(() =>
+    createHandWrittenTimelinePoints(),
+  );
 
   let width = 0;
   let height = 0;
@@ -45,6 +50,8 @@
     .scaleLinear()
     .domain([0, Math.max(1, timelines.length - 1)])
     .range([timelineGroupStart, timelineGroupStart + timelineGroupHeight]);
+  $: fullTimelineWidth =
+    timelineX(timelineEndYear) - timelineX(earliestFoundationYear);
   $: timelineRows = timelines.map((timeline, index) => ({
     ...timeline,
     endX: timelineX(timelineEndYear),
@@ -61,12 +68,69 @@
         x: timelineX(interval.startYear),
       }),
     ),
+    timelinePath: createHandWrittenTimelinePath(
+      timelineX(timeline.foundation),
+      timelineX(timelineEndYear),
+      timelineY(index),
+      handwrittenTimelinePoints[index] ?? [],
+      fullTimelineWidth,
+    ),
     y: timelineY(index),
   }));
   $: dataPeriodLabelY = timelineRows[0]
     ? timelineRows[0].y - (dataBarHeight + 1) + dataBarHeight / 2
     : 0;
   $: topTimelineY = timelineRows[0] ? timelineRows[0].y : 0;
+
+  type HandWrittenTimelinePoint = {
+    offset: number;
+    position: number;
+  };
+
+  function createHandWrittenTimelinePoints(): HandWrittenTimelinePoint[] {
+    return d3
+      .range(6)
+      .map(() => ({
+        offset: randomPointOffset(),
+        position: randomPointPosition(),
+      }))
+      .sort((first, second) => first.position - second.position);
+  }
+
+  function createHandWrittenTimelinePath(
+    startX: number,
+    endX: number,
+    y: number,
+    handwrittenPoints: HandWrittenTimelinePoint[],
+    fullTimelineWidth: number,
+  ): string {
+    const width = endX - startX;
+    const relativeWidth = fullTimelineWidth > 0 ? width / fullTimelineWidth : 1;
+    const variationScale = Math.max(
+      1,
+      Math.min(1, relativeWidth),
+    );
+    const pointCount = Math.max(
+      2,
+      Math.round(handwrittenPoints.length * variationScale),
+    );
+    const pointStep = Math.ceil(handwrittenPoints.length / pointCount);
+    const selectedPoints = handwrittenPoints
+      .filter((_, index) => index % pointStep === 0)
+      .slice(0, pointCount);
+    const points: [number, number][] = [
+      [startX, y],
+      ...selectedPoints.map(({ offset, position }) => [
+        startX + width * position,
+        y + offset * variationScale,
+      ] as [number, number]),
+      [endX, y],
+    ];
+
+    return d3.line<[number, number]>().curve(d3.curveCatmullRom.alpha(0.5))(
+      points,
+    ) ?? "";
+  }
 </script>
 
 <div
@@ -108,6 +172,7 @@
     </desc>
     {#each timelineRows as timeline, index}
       <g class="timeline-row">
+        <!--
         <line
           class="timeline-line"
           x1={timeline.startX}
@@ -115,6 +180,8 @@
           y1={timeline.y}
           y2={timeline.y}
         />
+        -->
+        <path class="timeline-line" d={timeline.timelinePath} />
         <circle
           class="foundation-marker"
           cx={timeline.startX}
@@ -189,7 +256,7 @@
             class="data-legend-label"
             x={timeline.ticketingDataRectangles[0].x}
             y={timeline.y - (dataBarHeight * 2 + 19)}
-            text-anchor="start">Ticketing Data</text
+            text-anchor="start">Tickets Data</text
           >
           <line
             class="data-legend-arrow"
@@ -260,6 +327,7 @@
   .timeline-line {
     stroke: #252525;
     stroke-width: 2;
+    fill: none;
   }
 
   .foundation-marker {

@@ -4,10 +4,8 @@
   import "leaflet/dist/leaflet.css";
   import LegendGuide from "./LegendGuide.svelte";
   import WorldHexPanels from "./WorldHexPanels.svelte";
-  import type {
-    WorldHexData,
-    WorldHexDataStatus,
-  } from "./utils/worldHexMap";
+  import CountryStrip from "./CountryStrip.svelte";
+  import type { WorldHexData, WorldHexDataStatus } from "./utils/worldHexMap";
   import FestivalTimeline from "./FestivalTimeline.svelte";
   import type {
     FestivalDataByFestival,
@@ -31,8 +29,6 @@
   import { festivals } from "./utils/festivals.js";
 
   export let festivalData: FestivalDataByFestival | undefined;
-  export let festivalDataStatus: WorldHexDataStatus = "loading";
-  export let festivalDataError = "";
   export let worldHexData: WorldHexData | undefined;
   export let worldHexDataStatus: WorldHexDataStatus = "loading";
   export let worldHexDataError = "";
@@ -63,15 +59,18 @@
 
   $: circleX = width / 2;
   $: circleY = height / 2;
-  $: circleRadius = Math.max(0, Math.min(width / 2 - 40, height / 2 - 50));
+  $: circleRadius = Math.max(0, Math.min(width / 2 - 40, height / 2 - 70));
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
   $: activeEvents = selectFestivalEvents(festivalData, selectedFestivalData);
-  $: countryCatalog = worldHexData ? createCountryCatalog(worldHexData) : undefined;
-  $: countryRepresentation = activeEvents && countryCatalog
-    ? aggregateCountryRepresentation(activeEvents, countryCatalog)
+  $: countryCatalog = worldHexData
+    ? createCountryCatalog(worldHexData)
     : undefined;
+  $: countryRepresentation =
+    activeEvents && countryCatalog
+      ? aggregateCountryRepresentation(activeEvents, countryCatalog)
+      : undefined;
   $: countryScope = selectedFestivalData?.festival ?? "All festivals";
   $: if (eventMarkerLayer && activeEvents) renderEventHexBins(activeEvents);
   onMount(() => {
@@ -81,11 +80,14 @@
       zoomControl: false,
     });
 
-    const baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    });
+    const baseLayer = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      },
+    );
     baseLayer.once("load", () => dispatch("ready"));
     baseLayer.addTo(map);
 
@@ -217,18 +219,17 @@
     keyboard, mouse, trackpad, or touch screen to navigate the map.
   </p>
   <p class="visually-hidden">
-    Hex maps derived from country polygons flank the Edinburgh map.
-    The Americas appear on the left with detached Pacific islands omitted;
-    the remaining world appears on the right with detached western outliers
-    and islands east of Australia omitted; Iceland and New Zealand are retained.
-    Selected remote territories are also omitted.
-    New Zealand's island spacing is adjusted schematically.
-    Hawaii is represented by two schematic hexagons in the Americas panel.
-    Scotland, England, Wales, and Northern Ireland each have one UK hexagon.
-    Both panels use the same hexagon size.
-    Coastlines and gaps reflect the supplied Natural Earth grid.
-    Higher opacity shows more event records associated with each country or
-    UK nation in the Country column. Country counts follow the festival selection.
+    Hex maps derived from country polygons flank the Edinburgh map. The Americas
+    appear on the left with detached Pacific islands omitted; the remaining
+    world appears on the right with detached western outliers and islands east
+    of Australia omitted; Iceland and New Zealand are retained. Selected remote
+    territories are also omitted. New Zealand's island spacing is adjusted
+    schematically. Hawaii is represented by two schematic hexagons in the
+    Americas panel. Scotland, England, Wales, and Northern Ireland each have one
+    UK hexagon. Both panels use the same hexagon size. Coastlines and gaps
+    reflect the supplied Natural Earth grid. Higher opacity shows more event
+    records associated with each country or UK nation in the Country column.
+    Country counts follow the festival selection.
   </p>
   {#if festivalData}
     <p class="visually-hidden" aria-live="polite">
@@ -262,13 +263,13 @@
       </svg>
     </button>
   {/if}
-  <div
+  <!-- <div
     class="camera-readout"
     title="Virtual camera altitude assuming a 36.87° vertical FOV and the current map viewport height. Leaflet has no real camera."
     aria-label={`Approximate virtual camera altitude: ${formatApproxCameraAltitude(cameraAltitude)}. Leaflet has no real camera.`}
   >
     {formatApproxCameraAltitude(cameraAltitude)}
-  </div>
+  </div> -->
   <svg
     class="panel-overlay"
     role="group"
@@ -299,6 +300,7 @@
       on:select={handleFestivalSelect}
     />
   </svg>
+  <!-- Temporarily hidden while reviewing the country-strip visualization.
   <WorldHexPanels
     {circleX}
     {circleRadius}
@@ -307,9 +309,9 @@
     error={worldHexDataError}
     representation={countryRepresentation}
     scope={countryScope}
-    countryStatus={festivalDataStatus}
-    countryError={festivalDataError}
   />
+  -->
+  <CountryStrip data={worldHexData} representation={countryRepresentation} />
   <LegendGuide
     stage={legendStage}
     {circleX}
