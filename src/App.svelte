@@ -2,10 +2,9 @@
   import { onMount } from "svelte";
   import { loadFestivalDataByFestival } from "./lib/utils/festivalData";
   import {
-    loadWorldHexData,
-    type WorldHexData,
-    type WorldHexDataStatus,
-  } from "./lib/utils/worldHexMap";
+    loadCountryStripData,
+    type CountryStripData,
+  } from "./lib/utils/countryStripData";
   import Map from "./lib/Map.svelte";
   import FestivalHistory from "./lib/FestivalHistory.svelte";
   import { festivals } from "./lib/utils/festivals.js";
@@ -39,9 +38,7 @@
   let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
   let festivalDataStatus: FestivalDataStatus = "loading";
   let festivalDataError = "";
-  let worldHexData: WorldHexData | undefined;
-  let worldHexDataStatus: WorldHexDataStatus = "loading";
-  let worldHexDataError = "";
+  let countryStripData: CountryStripData | undefined;
   let isInitialScreenVisible = true;
   let isFestivalDataLoaded = false;
   let areFontsLoaded = false;
@@ -54,7 +51,7 @@
 
   onMount(() => {
     void fetchFestivalData();
-    void fetchWorldHexData();
+    void fetchCountryStripData();
     void waitForDocumentFonts();
   });
 
@@ -113,17 +110,11 @@
     areFontsLoaded = true;
   }
 
-  async function fetchWorldHexData() {
+  async function fetchCountryStripData() {
     try {
-      worldHexData = await loadWorldHexData();
-      worldHexDataStatus =
-        worldHexData.americasHexes.length + worldHexData.restHexes.length > 0
-          ? "ready"
-          : "empty";
+      countryStripData = await loadCountryStripData();
     } catch (error) {
-      worldHexDataStatus = "error";
-      worldHexDataError =
-        error instanceof Error ? error.message : "An unknown error occurred.";
+      console.error("Unable to load country-strip data.", error);
     }
   }
 
@@ -131,7 +122,6 @@
     isMapLoaded = true;
   }
 
-  $: console.log(worldHexData);
 </script>
 
 <svelte:head>
@@ -210,9 +200,7 @@
   >
     <Map
       {festivalData}
-      {worldHexData}
-      {worldHexDataStatus}
-      {worldHexDataError}
+      {countryStripData}
       {legendStage}
       on:ready={handleMapLoaded}
       on:legendNext={() => (legendStage = "world")}

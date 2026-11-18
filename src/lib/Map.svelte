@@ -3,9 +3,9 @@
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
   import LegendGuide from "./LegendGuide.svelte";
-  import WorldHexPanels from "./WorldHexPanels.svelte";
-  import CountryStrip from "./CountryStrip.svelte";
-  import type { WorldHexData, WorldHexDataStatus } from "./utils/worldHexMap";
+  import EventCountryStrip from "./EventCountryStrip.svelte";
+  import TicketCountryStrip from "./TicketCountryStrip.svelte";
+  import type { CountryStripData } from "./utils/countryStripData";
   import FestivalTimeline from "./FestivalTimeline.svelte";
   import type {
     FestivalDataByFestival,
@@ -29,9 +29,7 @@
   import { festivals } from "./utils/festivals.js";
 
   export let festivalData: FestivalDataByFestival | undefined;
-  export let worldHexData: WorldHexData | undefined;
-  export let worldHexDataStatus: WorldHexDataStatus = "loading";
-  export let worldHexDataError = "";
+  export let countryStripData: CountryStripData | undefined;
   export let legendStage: "hidden" | "central" | "world" = "hidden";
 
   const dispatch = createEventDispatcher<{
@@ -64,8 +62,8 @@
     map.invalidateSize({ animate: false });
   }
   $: activeEvents = selectFestivalEvents(festivalData, selectedFestivalData);
-  $: countryCatalog = worldHexData
-    ? createCountryCatalog(worldHexData)
+  $: countryCatalog = countryStripData
+    ? createCountryCatalog(countryStripData)
     : undefined;
   $: countryRepresentation =
     activeEvents && countryCatalog
@@ -218,19 +216,6 @@
     Arcs around that window show each festival's 2025 date range. Use your
     keyboard, mouse, trackpad, or touch screen to navigate the map.
   </p>
-  <p class="visually-hidden">
-    Hex maps derived from country polygons flank the Edinburgh map. The Americas
-    appear on the left with detached Pacific islands omitted; the remaining
-    world appears on the right with detached western outliers and islands east
-    of Australia omitted; Iceland and New Zealand are retained. Selected remote
-    territories are also omitted. New Zealand's island spacing is adjusted
-    schematically. Hawaii is represented by two schematic hexagons in the
-    Americas panel. Scotland, England, Wales, and Northern Ireland each have one
-    UK hexagon. Both panels use the same hexagon size. Coastlines and gaps
-    reflect the supplied Natural Earth grid. Higher opacity shows more event
-    records associated with each country or UK nation in the Country column.
-    Country counts follow the festival selection.
-  </p>
   {#if festivalData}
     <p class="visually-hidden" aria-live="polite">
       {eventLocationCount} source event records grouped into hexagons
@@ -300,18 +285,8 @@
       on:select={handleFestivalSelect}
     />
   </svg>
-  <!-- Temporarily hidden while reviewing the country-strip visualization.
-  <WorldHexPanels
-    {circleX}
-    {circleRadius}
-    data={worldHexData}
-    status={worldHexDataStatus}
-    error={worldHexDataError}
-    representation={countryRepresentation}
-    scope={countryScope}
-  />
-  -->
-  <CountryStrip data={worldHexData} representation={countryRepresentation} />
+  <EventCountryStrip data={countryStripData} representation={countryRepresentation} />
+  <TicketCountryStrip data={countryStripData} />
   <LegendGuide
     stage={legendStage}
     {circleX}
@@ -350,7 +325,7 @@
     position: absolute;
     z-index: 2;
     bottom: 1rem;
-    left: 1rem;
+    left: 4rem;
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;

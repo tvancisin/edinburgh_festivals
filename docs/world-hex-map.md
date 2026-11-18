@@ -27,6 +27,23 @@ the right panel selects every
 `group === "rest"` cell (1,138 cells). No runtime island or territory exclusions
 remain. Each loaded cell is rendered when the panels have enough space.
 
+## Country-strip source
+
+The two country strips load the separate
+`public/data/strip-countries.json` asset. It is a compact, strip-only
+derivative of `hex-world-110cols.json`, created on November 18, 2026. Each of
+its 204 records retains only the source country ID, supplied name, and
+continental classification needed for strip layout and event-count matching.
+The original hex file remains unchanged and continues to supply the map.
+
+The strip asset omits the formal overseas territories represented in the
+source: Anguilla, Bermuda, British Virgin Is., Cayman Is., Falkland Is.,
+Montserrat, Saint Helena, Turks and Caicos Is., St. Pierre and Miquelon,
+St-Martin, St-Barthélemy, New Caledonia, Puerto Rico, U.S. Virgin Is., Guam,
+N. Mariana Is., Indian Ocean Ter., Aruba, Curaçao, Sint Maarten, and Norfolk
+Island. The strip loader uses the supplied ordering within each continent and
+does not apply any further filtering, deduplication, or name changes.
+
 The original removals comprised nine detached Pacific cells on the left,
 five western outliers on the right, six cells east of Australia, and the five
 additional territories requested by the user. Only the three wrapped Russia

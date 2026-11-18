@@ -1,10 +1,5 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import {
-    getWorldHexPanelBox,
-    type WorldHexPanelBox,
-  } from "./utils/worldHexMap";
-
   export let stage: "hidden" | "central" | "world" = "hidden";
   export let circleX = 0;
   export let circleY = 0;
@@ -13,21 +8,23 @@
   const dispatch = createEventDispatcher<{ next: void; dismiss: void }>();
   const centralGuidePadding = 58;
   const edgePadding = 8;
-  const worldGuideVerticalInset = 30;
+
+  type GuideBox = { x: number; y: number; width: number; height: number };
 
   let width = 0;
   let height = 0;
-  let centralBox: WorldHexPanelBox = { x: 0, y: 0, width: 0, height: 0 };
-  let americasBox: WorldHexPanelBox = { x: 0, y: 0, width: 0, height: 0 };
-  let restBox: WorldHexPanelBox = { x: 0, y: 0, width: 0, height: 0 };
+  let centralBox: GuideBox = { x: 0, y: 0, width: 0, height: 0 };
+  let americasBox: GuideBox = { x: 0, y: 0, width: 0, height: 0 };
+  let restBox: GuideBox = { x: 0, y: 0, width: 0, height: 0 };
 
   $: centralBox = getCentralGuideBox(width, height, circleX, circleY, circleRadius);
-  $: americasBox = insetVertically(
-    getWorldHexPanelBox("americas", width, height, circleX, circleRadius),
-  );
-  $: restBox = insetVertically(
-    getWorldHexPanelBox("rest", width, height, circleX, circleRadius),
-  );
+  $: americasBox = { x: 2, y: 2, width: Math.max(0, circleX - circleRadius - 2), height: Math.max(0, height - 4) };
+  $: restBox = {
+    x: Math.min(width, circleX + circleRadius),
+    y: 2,
+    width: Math.max(0, width - circleX - circleRadius - 2),
+    height: Math.max(0, height - 4),
+  };
 
   function getCentralGuideBox(
     containerWidth: number,
@@ -35,7 +32,7 @@
     centerX: number,
     centerY: number,
     radius: number,
-  ): WorldHexPanelBox {
+  ): GuideBox {
     const left = Math.max(edgePadding, centerX - radius - centralGuidePadding);
     const top = Math.max(edgePadding, centerY - radius - centralGuidePadding);
     const right = Math.min(containerWidth - edgePadding, centerX + radius + centralGuidePadding);
@@ -48,14 +45,10 @@
     };
   }
 
-  function frameStyle(box: WorldHexPanelBox): string {
+  function frameStyle(box: GuideBox): string {
     return `left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px;`;
   }
 
-  function insetVertically(box: WorldHexPanelBox): WorldHexPanelBox {
-    const inset = Math.min(worldGuideVerticalInset, box.height / 2);
-    return { ...box, y: box.y + inset, height: Math.max(0, box.height - inset * 2) };
-  }
 </script>
 
 <div

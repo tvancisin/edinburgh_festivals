@@ -15,6 +15,7 @@
   const eventDataEndYear = 2026;
   const pandemicYear = 2020;
   const pandemicEndYear = 2021;
+  const pandemicExceptionFestival = "Book";
   const dataBarHeight = 12;
   const timelineEndYear = Math.max(currentYear, eventDataEndYear) + 1;
   const randomPointPosition = d3.randomUniform(0.08, 0.92);
@@ -25,6 +26,7 @@
 
   let width = 0;
   let height = 0;
+  let pandemicIndicatorSegments: { height: number; y: number }[] = [];
 
   $: horizontalMargin = calculateFestivalHistoryHorizontalMargin(width);
   $: timelineLeadingSpace = 36;
@@ -81,6 +83,38 @@
     ? timelineRows[0].y - (dataBarHeight + 1) + dataBarHeight / 2
     : 0;
   $: topTimelineY = timelineRows[0] ? timelineRows[0].y : 0;
+  $: pandemicExceptionIndex = timelineRows.findIndex(
+    (timeline) => timeline.name === pandemicExceptionFestival,
+  );
+  $: pandemicExceptionPreviousTimeline = pandemicExceptionIndex > 0
+    ? timelineRows[pandemicExceptionIndex - 1]
+    : undefined;
+  $: pandemicExceptionNextTimeline =
+    pandemicExceptionIndex >= 0 && pandemicExceptionIndex < timelineRows.length - 1
+      ? timelineRows[pandemicExceptionIndex + 1]
+      : undefined;
+  $: pandemicExceptionTop = pandemicExceptionPreviousTimeline
+    ? Math.min(
+      pandemicIndicatorBottom,
+      pandemicExceptionPreviousTimeline.y + 20,
+    )
+    : pandemicIndicatorBottom;
+  $: pandemicExceptionBottom = pandemicExceptionNextTimeline
+    ? Math.max(
+      pandemicIndicatorTop,
+      pandemicExceptionNextTimeline.y - dataBarHeight - 16,
+    )
+    : pandemicIndicatorTop;
+  $: pandemicIndicatorSegments = [
+    {
+      height: Math.max(0, pandemicExceptionTop - pandemicIndicatorTop),
+      y: pandemicIndicatorTop,
+    },
+    {
+      height: Math.max(0, pandemicIndicatorBottom - pandemicExceptionBottom),
+      y: pandemicExceptionBottom,
+    },
+  ].filter((segment) => segment.height > 0);
 
   type HandWrittenTimelinePoint = {
     offset: number;
@@ -163,8 +197,9 @@
       festival's foundation year and extends through {currentYear}. Bars above
       every timeline show that events data is available from 2012 to 2026. A
       background-colour band spanning 2020 identifies the COVID pandemic, with
-      dashed lines marking its start and end. Outlined bars below those show
-      ticketing data availability: Fringe in 2019 and 2021 to 2026,
+      a gap for the Book Festival because its timeline and events data continue
+      in 2020. Dashed lines mark the pandemic start and end. Outlined bars below
+      those show ticketing data availability: Fringe in 2019 and 2021 to 2026,
       International in 2022 to 2026, Tattoo in 2024 to 2026, and Book in 2024 to
       2025. Labels on the top festival row identify the foundation year, events
       data, and ticketing data encodings. Labels mark the events data period
@@ -286,24 +321,26 @@
       >
     </g>
     <g class="pandemic-indicator">
-      <rect
-        x={timelineX(pandemicYear)}
-        y={pandemicIndicatorTop}
-        width={timelineX(pandemicEndYear) - timelineX(pandemicYear)}
-        height={pandemicIndicatorBottom - pandemicIndicatorTop}
-      />
-      <line
-        x1={timelineX(pandemicYear)}
-        x2={timelineX(pandemicYear)}
-        y1={pandemicIndicatorTop}
-        y2={pandemicIndicatorBottom}
-      />
-      <line
-        x1={timelineX(pandemicEndYear)}
-        x2={timelineX(pandemicEndYear)}
-        y1={pandemicIndicatorTop}
-        y2={pandemicIndicatorBottom}
-      />
+      {#each pandemicIndicatorSegments as segment}
+        <rect
+          x={timelineX(pandemicYear)}
+          y={segment.y}
+          width={timelineX(pandemicEndYear) - timelineX(pandemicYear)}
+          height={segment.height}
+        />
+        <line
+          x1={timelineX(pandemicYear)}
+          x2={timelineX(pandemicYear)}
+          y1={segment.y}
+          y2={segment.y + segment.height}
+        />
+        <line
+          x1={timelineX(pandemicEndYear)}
+          x2={timelineX(pandemicEndYear)}
+          y1={segment.y}
+          y2={segment.y + segment.height}
+        />
+      {/each}
       <text
         x={timelineX(pandemicYear) + 6}
         y={pandemicIndicatorBottom + 20}

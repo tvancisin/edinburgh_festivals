@@ -1,5 +1,10 @@
 import * as d3 from "d3";
-import { worldCountryStripGap } from "./worldHexMap";
+import {
+  getCountryStripGap,
+  type CountryStripCell,
+  type CountryStripData,
+  type RawCountryStripRow,
+} from "./countryStripData";
 import type {
   FestivalData,
   FestivalDataByFestival,
@@ -7,8 +12,6 @@ import type {
   RawFestivalData,
 } from "./festivalData";
 import type {
-  RawWorldHex,
-  WorldCountryStripCell,
   WorldHexCell,
   WorldHexData,
   WorldHexLayout,
@@ -19,7 +22,7 @@ export type CountryTarget = {
   key: string;
   name: string;
   hasHexagons: boolean;
-  raw: RawWorldHex[];
+  raw: RawCountryStripRow[];
 };
 
 export type CountryCatalog = {
@@ -70,7 +73,7 @@ export type RepresentedWorldHexLayout = Omit<WorldHexLayout, "panels"> & {
   })[];
 };
 
-export type RepresentedWorldCountryStripCell = WorldCountryStripCell & {
+export type RepresentedWorldCountryStripCell = CountryStripCell & {
   hasEventData: boolean;
   fillOpacity: number;
 };
@@ -145,21 +148,21 @@ export function getHexCountryKey(
 }
 
 /** Build a join catalog from the loaded hexes, retaining every contributing cell. */
-export function createCountryCatalog(data: WorldHexData): CountryCatalog {
+export function createCountryCatalog(data: CountryStripData): CountryCatalog {
   const targets = new Map<string, CountryTarget>();
   const aliases = new Map<string, string>();
-  for (const hex of [...data.americasHexes, ...data.restHexes]) {
-    const key = getHexCountryKey(hex);
+  for (const country of data.countries) {
+    const key = getHexCountryKey({ countryId: country.id, countryName: country.name });
     const target = targets.get(key);
-    if (target) target.raw.push(hex.raw);
+    if (target) target.raw.push(country);
     else
       targets.set(key, {
         key,
-        name: hex.countryName,
+        name: country.name,
         hasHexagons: true,
-        raw: [hex.raw],
+        raw: [country],
       });
-    aliases.set(normalizeCountryName(hex.countryName), key);
+    aliases.set(normalizeCountryName(country.name), key);
   }
   targets.set("826", {
     key: "826",
@@ -359,20 +362,15 @@ export function addCountryRepresentationToLayout(
  * displays one UK rectangle.
  */
 export function addCountryRepresentationToStrip(
-  countries: WorldCountryStripCell[],
+  countries: CountryStripCell[],
   representation: CountryRepresentation | undefined,
 ): RepresentedWorldCountryStripCell[] {
   const representedCountries = countries.map((country) => {
     const hasEventData = representation
-      ? country.raw.some((raw) => {
-        const countryId = raw.id == null || String(raw.id).trim() === ""
-          ? null
-          : String(raw.id);
-        return (representation.byKey.get(getHexCountryKey({
-          countryId,
-          countryName: raw.name,
-        }))?.eventCount ?? 0) > 0;
-      })
+      ? (representation.byKey.get(getHexCountryKey({
+        countryId: country.raw.id,
+        countryName: country.raw.name,
+      }))?.eventCount ?? 0) > 0
       : false;
     return {
       ...country,
@@ -380,7 +378,7 @@ export function addCountryRepresentationToStrip(
       fillOpacity: hasEventData ? 1 : countryOpacity.noRecords,
     };
   });
-  const byContinent = new Map<WorldCountryStripCell["continent"], RepresentedWorldCountryStripCell[]>();
+  const byContinent = new Map<CountryStripCell["continent"], RepresentedWorldCountryStripCell[]>();
   for (const country of representedCountries) {
     const members = byContinent.get(country.continent) ?? [];
     members.push(country);
@@ -389,20 +387,26 @@ export function addCountryRepresentationToStrip(
   const orderedCountries = [...byContinent.values()].flatMap((members) =>
     members.sort((first, second) => Number(second.hasEventData) - Number(first.hasEventData)),
   );
-  const stripWidth = d3.sum(countries, (country) => country.width) +
-    worldCountryStripGap * Math.max(0, countries.length - 1);
+  const gaps = orderedCountries.map((country, index) =>
+    index === 0 ? 0 : getCountryStripGap(orderedCountries[index - 1], country),
+  );
+  const stripWidth = d3.sum(countries, (country) => country.width) + d3.sum(gaps);
   const availableWidth = Math.max(
     0,
-    stripWidth - worldCountryStripGap * Math.max(0, orderedCountries.length - 1),
+    stripWidth - d3.sum(gaps),
   );
   const position = d3.scaleLinear()
     .domain([0, orderedCountries.length])
     .range([0, availableWidth]);
-  return orderedCountries.map((country, index) => ({
-    ...country,
-    x: position(index) + index * worldCountryStripGap,
-    width: Math.max(0, position(index + 1) - position(index)),
-  }));
+  let gapOffset = 0;
+  return orderedCountries.map((country, index) => {
+    gapOffset += gaps[index];
+    return {
+      ...country,
+      x: position(index) + gapOffset,
+      width: Math.max(0, position(index + 1) - position(index)),
+    };
+  });
 }
 
 /** Concise written equivalent; detailed counts remain available in the table. */

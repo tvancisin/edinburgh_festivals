@@ -1,40 +1,47 @@
 <script lang="ts">
   import {
-    createWorldContinentStrip,
-    createWorldCountryStrip,
-    type WorldHexData,
-  } from "./utils/worldHexMap";
+    createContinentStrip,
+    createCountryStrip,
+    type CountryStripData,
+  } from "./utils/countryStripData";
   import {
     addCountryRepresentationToStrip,
     type CountryRepresentation,
   } from "./utils/festivalCountries";
 
-  export let data: WorldHexData | undefined;
+  export let data: CountryStripData | undefined;
   export let representation: CountryRepresentation | undefined;
 
   let width = 0;
   let height = 0;
 
+  const continentStripWidth = 30;
+  const countryStripWidth = 20;
+  const stripLabelHeight = 28;
+  const stripWidth = 60;
+
   $: countries = addCountryRepresentationToStrip(
-    createWorldCountryStrip(data, Math.max(0, height - 4)),
+    createCountryStrip(data, Math.max(0, height - stripLabelHeight - 4)),
     representation,
-  ).map((country) => ({ ...country, x: country.x + 2 }));
-  $: continents = createWorldContinentStrip(countries);
+  ).map((country) => ({ ...country, x: country.x + stripLabelHeight + 2 }));
+  $: continents = createContinentStrip(countries);
 </script>
 
 <div
   class="country-strip"
+  style:width={`${stripWidth}px`}
   bind:clientWidth={width}
   bind:clientHeight={height}
   aria-hidden="true"
 >
   {#if countries.length}
     <svg {width} {height}>
+      <text class="strip-title" x={stripWidth / 2} y="19" text-anchor="middle">Events</text>
       {#each countries as country (country.countryKey)}
         <rect
-          x="15"
+          x={continentStripWidth}
           y={country.x}
-          width="10"
+          width={countryStripWidth}
           height={country.width}
           fill-opacity={country.fillOpacity}
         />
@@ -44,7 +51,7 @@
           class="continent"
           x="0"
           y={continent.x}
-          width="15"
+          width={continentStripWidth}
           height={continent.width}
         >
           <title>{continent.continent}</title>
@@ -53,12 +60,13 @@
           class="continent-label"
           text-anchor="start"
           dominant-baseline="middle"
-          transform={`translate(7.5 ${continent.x + 2}) rotate(90)`}
-        >{continent.continent === "North America"
-          ? "N. America"
-          : continent.continent === "South America"
-            ? "S. America"
-            : continent.continent}</text>
+          transform={`translate(${continentStripWidth / 1.5} ${continent.x + 2}) rotate(90)`}
+        >{#if continent.continent === "North America" || continent.continent === "South America"}
+          <tspan x="0">{continent.continent === "North America" ? "North" : "South"}</tspan>
+          <tspan x="0" dy="1em">America</tspan>
+        {:else}
+          {continent.continent}
+        {/if}</text>
       {/each}
     </svg>
   {/if}
@@ -73,9 +81,8 @@
   .country-strip {
     position: absolute;
     z-index: 3;
-    left: 0;
+    left: 2px;
     top: 0;
-    width: 25px;
     height: 100%;
     pointer-events: none;
   }
@@ -90,8 +97,7 @@
 
   rect.continent {
     fill: #b8b7b2;
-    stroke: #f8f7f4;
-    stroke-width: 1px;
+    stroke: none;
   }
 
   .continent-label {
@@ -99,6 +105,12 @@
     font-size: 10px;
     font-weight: 700;
     pointer-events: none;
+  }
+
+  .strip-title {
+    fill: #252525;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .visually-hidden {

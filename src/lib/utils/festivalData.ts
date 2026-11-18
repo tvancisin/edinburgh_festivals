@@ -87,7 +87,7 @@ export type FestivalDataGroup = {
 
 export type FestivalDataByFestival = Record<string, FestivalDataGroup>;
 
-const festivalDataCsvPath = `${import.meta.env.BASE_URL}data/festivals_2025.csv`;
+const festivalDataCsvPath = `${import.meta.env.BASE_URL}data/2025.csv`;
 const parseDate = d3.timeParse("%Y-%m-%d");
 const parseTimestamp = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
