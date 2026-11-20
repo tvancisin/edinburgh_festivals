@@ -2,9 +2,15 @@
   import { createEventDispatcher, onMount } from "svelte";
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
+  import * as maplibregl from "maplibre-gl";
+  import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
+  import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
+  import "maplibre-gl/dist/maplibre-gl.css";
   import LegendGuide from "./LegendGuide.svelte";
   import EventCountryStrip from "./EventCountryStrip.svelte";
+  import EventCountryConnections from "./EventCountryConnections.svelte";
   import TicketCountryStrip from "./TicketCountryStrip.svelte";
+  import TicketCountryConnections from "./TicketCountryConnections.svelte";
   import type { CountryStripData } from "./utils/countryStripData";
   import FestivalTimeline from "./FestivalTimeline.svelte";
   import type {
@@ -12,6 +18,11 @@
     FestivalDataGroup,
   } from "./utils/festivalData";
   import { filterFestivalDataWithCoordinates } from "./utils/festivalData";
+  import type { TicketData } from "./utils/ticketData";
+  import {
+    aggregateTicketCountryRepresentation,
+    createTicketCountryCatalog,
+  } from "./utils/ticketCountries";
   import {
     aggregateCountryRepresentation,
     createCountryCatalog,
@@ -30,6 +41,10 @@
 
   export let festivalData: FestivalDataByFestival | undefined;
   export let countryStripData: CountryStripData | undefined;
+  export let ticketData: TicketData[] | undefined;
+  export let ticketDataStatus: "loading" | "ready" | "empty" | "error" =
+    "loading";
+  export let ticketDataError = "";
   export let legendStage: "hidden" | "central" | "world" = "hidden";
 
   const dispatch = createEventDispatcher<{
@@ -39,6 +54,9 @@
   }>();
 
   const hexBinRadius = 16;
+
+  // Vite serves the MapLibre worker from an explicit bundled asset URL.
+  maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
   let mapElement: HTMLDivElement;
   let map: L.Map | undefined;
@@ -57,7 +75,7 @@
 
   $: circleX = width / 2;
   $: circleY = height / 2;
-  $: circleRadius = Math.max(0, Math.min(width / 2 - 40, height / 2 - 70));
+  $: circleRadius = Math.max(0, Math.min(width / 2 - 32, height / 2 - 62));
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
@@ -69,6 +87,13 @@
     activeEvents && countryCatalog
       ? aggregateCountryRepresentation(activeEvents, countryCatalog)
       : undefined;
+  $: ticketCountryCatalog = countryStripData
+    ? createTicketCountryCatalog(countryStripData)
+    : undefined;
+  $: ticketCountryRepresentation =
+    ticketData && ticketCountryCatalog
+      ? aggregateTicketCountryRepresentation(ticketData, ticketCountryCatalog)
+      : undefined;
   $: countryScope = selectedFestivalData?.festival ?? "All festivals";
   $: if (eventMarkerLayer && activeEvents) renderEventHexBins(activeEvents);
   onMount(() => {
@@ -78,16 +103,11 @@
       zoomControl: false,
     });
 
-    const baseLayer = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      },
-    );
-    baseLayer.once("load", () => dispatch("ready"));
+    const baseLayer = maplibreGL({
+      style: "https://tiles.openfreemap.org/styles/positron",
+    });
     baseLayer.addTo(map);
+    baseLayer.getMaplibreMap().once("load", () => dispatch("ready"));
 
     eventMarkerRenderer = L.canvas({ padding: 0.5 }).addTo(map);
     eventMarkerLayer = L.layerGroup().addTo(map);
@@ -285,8 +305,26 @@
       on:select={handleFestivalSelect}
     />
   </svg>
+  <EventCountryConnections
+    data={countryStripData}
+    representation={countryRepresentation}
+    scope={countryScope}
+    {circleRadius}
+  />
   <EventCountryStrip data={countryStripData} representation={countryRepresentation} />
-  <TicketCountryStrip data={countryStripData} />
+  <TicketCountryConnections
+    data={countryStripData}
+    representation={ticketCountryRepresentation}
+    status={ticketDataStatus}
+    error={ticketDataError}
+    {circleRadius}
+  />
+  <TicketCountryStrip
+    data={countryStripData}
+    representation={ticketCountryRepresentation}
+    status={ticketDataStatus}
+    error={ticketDataError}
+  />
   <LegendGuide
     stage={legendStage}
     {circleX}

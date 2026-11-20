@@ -1,32 +1,34 @@
 <script lang="ts">
   import {
     createContinentStrip,
-    createCountryStrip,
     type CountryStripData,
   } from "./utils/countryStripData";
   import {
-    addCountryRepresentationToStrip,
-    type CountryRepresentation,
-  } from "./utils/festivalCountries";
+    createTicketCountryStrip,
+    describeTicketCountryRepresentation,
+    ticketCountryStripLayout,
+    type TicketCountryRepresentation,
+  } from "./utils/ticketCountries";
 
-  // Ticket-country data will be supplied once its source is available.
   export let data: CountryStripData | undefined = undefined;
-  export let representation: CountryRepresentation | undefined = undefined;
+  export let representation: TicketCountryRepresentation | undefined = undefined;
+  export let status: "loading" | "ready" | "empty" | "error" = "loading";
+  export let error = "";
 
   let width = 0;
   let height = 0;
 
-  const continentStripWidth = 30;
-  const countryStripWidth = 20;
-  const stripLabelHeight = 28;
-  const stripContentOffset = 10;
-  const stripWidth = continentStripWidth + countryStripWidth + stripContentOffset;
 
-  $: countries = addCountryRepresentationToStrip(
-    createCountryStrip(data, Math.max(0, height - stripLabelHeight - 4)),
+  const { continentWidth: continentStripWidth, countryWidth: countryStripWidth,
+    contentOffset: stripContentOffset, titleWidth: stripWidth } = ticketCountryStripLayout;
+
+  $: countries = createTicketCountryStrip(
+    data,
     representation,
-  ).map((country) => ({ ...country, x: country.x + stripLabelHeight + 2 }));
+    height,
+  );
   $: continents = createContinentStrip(countries);
+  
 </script>
 
 <div
@@ -38,14 +40,17 @@
 >
   {#if countries.length}
     <svg {width} {height}>
-      <text class="strip-title" x={stripWidth / 2} y="19" text-anchor="middle">Visitors</text>
+      <text class="strip-title" x={stripWidth / 2} y="19" text-anchor="middle"
+        >Tickets</text
+      >
       {#each countries as country (country.countryKey)}
         <rect
+          class:has-record={country.purchaseRecordCount > 0}
+          class:without-record={country.purchaseRecordCount === 0}
           x={stripContentOffset}
           y={country.x}
           width={countryStripWidth}
           height={country.width}
-          fill-opacity={country.fillOpacity}
         />
       {/each}
       {#each continents as continent (continent.continent)}
@@ -63,20 +68,40 @@
           text-anchor="start"
           dominant-baseline="middle"
           transform={`translate(${stripContentOffset + countryStripWidth + continentStripWidth / 1.5} ${continent.x + 2}) rotate(90)`}
-        >{#if continent.continent === "North America" || continent.continent === "South America"}
-          <tspan x="0">{continent.continent === "North America" ? "North" : "South"}</tspan>
-          <tspan x="0" dy="1em">America</tspan>
-        {:else}
-          {continent.continent}
-        {/if}</text>
+          >{#if continent.continent === "North America" || continent.continent === "South America"}
+            <tspan x="0"
+              >{continent.continent === "North America"
+                ? "North"
+                : "South"}</tspan
+            >
+            <tspan x="0" dy="1em">America</tspan>
+          {:else}
+            {continent.continent}
+          {/if}</text
+        >
       {/each}
     </svg>
   {/if}
 </div>
 
 <p class="visually-hidden">
-  {countries.length} ticket-country rectangles will be arranged in six
-  continent groups down the right edge of the map when ticket-country data is available.
+  {#if status === "loading"}
+    Loading ticket purchase data.
+  {:else if status === "error"}
+    Ticket purchase data could not be loaded: {error}
+  {:else if status === "empty"}
+    No ticket purchase data is available.
+  {:else}
+    {#if representation}
+      {describeTicketCountryRepresentation(representation)} The {countries.length}
+      country rectangles are grouped by continent and ordered within each group by
+      descending ticket-data entry count. Countries with one or more entries are
+      dark gray; countries without entries are light gray.
+    {:else}
+      Ticket purchase data is available but its country representation cannot be
+      created.
+    {/if}
+  {/if}
 </p>
 
 <style>
@@ -94,7 +119,11 @@
   }
 
   rect {
-    fill: #252525;
+    fill: #d6d6d6;
+  }
+
+  rect.has-record {
+    fill: #9b9b9b;
   }
 
   rect.continent {
@@ -104,7 +133,7 @@
 
   .continent-label {
     fill: #252525;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     pointer-events: none;
   }

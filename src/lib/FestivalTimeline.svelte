@@ -19,7 +19,8 @@
 
   const arcThickness = 12;
   const arcGap = 5;
-  const circleGap = 5;
+  const mapToTimelineGap = 32;
+  const axisToArcGap = 5;
   const defaultLabelGap = 5;
   const topLabelGap = 5;
   const yearStart = new Date(2025, 0, 1);
@@ -76,7 +77,9 @@
   ): FestivalArc {
     const startAngle = festivalDateAngle(festival.start);
     const endAngle = festivalDateAngle(festival.end);
-    const innerRadius = mapRadius + circleGap + stack * (arcThickness + arcGap);
+    const timelineRadius = mapRadius + mapToTimelineGap;
+    const innerRadius =
+      timelineRadius + axisToArcGap + stack * (arcThickness + arcGap);
     const outerRadius = innerRadius + arcThickness;
     const labelRadius = innerRadius + arcThickness / 2;
     const labelAngle = ((endAngle * 180) / Math.PI + 360) % 360;
@@ -157,7 +160,10 @@
   }
 
   function createMonthTicks(mapRadius: number): MonthTick[] {
-    const labelRadius = Math.max(0, mapRadius - 14);
+    const labelRadius = Math.max(
+      0,
+      mapRadius + mapToTimelineGap / 2,
+    );
 
     return d3.timeMonth.range(yearStart, yearEnd).map((date) => {
       const angle = dateAngle(date);
@@ -176,7 +182,7 @@
 
   function createTodayIndicator(mapRadius: number): TodayIndicator {
     const angle = dateAngle(todayIndicatorDate);
-    const labelRadius = mapRadius + 50;
+    const labelRadius = mapRadius + mapToTimelineGap + 50;
     const angleDegrees = ((angle * 180) / Math.PI + 360) % 360;
     const shouldFlipLabel = angleDegrees > 90 && angleDegrees < 270;
 
@@ -190,14 +196,14 @@
 </script>
 
 <g transform={`translate(${circleX} ${circleY})`}>
-  <circle class="timeline-axis" r={circleRadius} />
+  <circle class="timeline-axis" r={circleRadius + mapToTimelineGap} />
   {#each monthTicks as tick}
     <line
       class="month-tick"
       x1="0"
       x2="0"
-      y1={-circleRadius}
-      y2={-(circleRadius + 7)}
+      y1={-(circleRadius + mapToTimelineGap)}
+      y2={-(circleRadius + mapToTimelineGap + 7)}
       transform={`rotate(${(tick.angle * 180) / Math.PI})`}
     />
     <text
@@ -218,8 +224,8 @@
     <line
       x1="0"
       x2="0"
-      y1={-circleRadius}
-      y2={-(circleRadius + 40)}
+      y1={-(circleRadius + mapToTimelineGap)}
+      y2={-(circleRadius + mapToTimelineGap + 40)}
       transform={`rotate(${(todayIndicator.angle * 180) / Math.PI})`}
     />
     <text
@@ -258,7 +264,7 @@
 <style>
   .timeline-axis,
   .month-tick {
-    stroke: #252525;
+    stroke: #777777;
     stroke-width: 1;
   }
 
@@ -267,25 +273,21 @@
   }
 
   .month-label {
-    fill: #252525;
+    fill: #666666;
     letter-spacing: -0.05em;
     font-size: 12px;
     font-weight: 700;
-    paint-order: stroke;
-    stroke: #fff;
-    stroke-linejoin: round;
-    stroke-width: 3px;
   }
 
   .today-indicator {
-    fill: #006b63;
+    fill: #666666;
     font-size: 12px;
     font-weight: 700;
     letter-spacing: -0.05em;
   }
 
   .today-indicator line {
-    stroke: #006b63;
+    stroke: #777777;
     stroke-width: 2px;
   }
 
@@ -303,7 +305,7 @@
   }
 
   .festival-label {
-    fill: #252525;
+    fill: #666666;
     letter-spacing: -0.05em;
     font-size: 12px;
     font-weight: 700;

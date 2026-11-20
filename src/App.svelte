@@ -5,6 +5,7 @@
     loadCountryStripData,
     type CountryStripData,
   } from "./lib/utils/countryStripData";
+  import { loadTicketData, type TicketData } from "./lib/utils/ticketData";
   import Map from "./lib/Map.svelte";
   import FestivalHistory from "./lib/FestivalHistory.svelte";
   import { festivals } from "./lib/utils/festivals.js";
@@ -31,6 +32,7 @@
   // Story     |   x(-)    |   -
 
   type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
+  type TicketDataStatus = FestivalDataStatus;
   type LegendStage = "hidden" | "central" | "world";
 
   let showExplorer = false;
@@ -39,8 +41,12 @@
   let festivalDataStatus: FestivalDataStatus = "loading";
   let festivalDataError = "";
   let countryStripData: CountryStripData | undefined;
+  let ticketData: TicketData[] | undefined;
+  let ticketDataStatus: TicketDataStatus = "loading";
+  let ticketDataError = "";
   let isInitialScreenVisible = true;
   let isFestivalDataLoaded = false;
+  let isTicketDataLoaded = false;
   let areFontsLoaded = false;
   let isMapLoaded = false;
   let isInitialScreenReady = false;
@@ -52,15 +58,17 @@
   onMount(() => {
     void fetchFestivalData();
     void fetchCountryStripData();
+    void fetchTicketData();
     void waitForDocumentFonts();
   });
 
   $: loadingProgress =
-    (isFestivalDataLoaded ? 34 : 0) +
-    (areFontsLoaded ? 33 : 0) +
-    (isMapLoaded ? 33 : 0);
+    (isFestivalDataLoaded ? 25 : 0) +
+    (isTicketDataLoaded ? 25 : 0) +
+    (areFontsLoaded ? 25 : 0) +
+    (isMapLoaded ? 25 : 0);
   $: isInitialScreenReady =
-    isFestivalDataLoaded && areFontsLoaded && isMapLoaded;
+    isFestivalDataLoaded && isTicketDataLoaded && areFontsLoaded && isMapLoaded;
   $: historyVerticalLayout = calculateFestivalHistoryVerticalLayout(
     mainHeight,
     festivals.length,
@@ -115,6 +123,20 @@
       countryStripData = await loadCountryStripData();
     } catch (error) {
       console.error("Unable to load country-strip data.", error);
+    }
+  }
+
+  async function fetchTicketData() {
+    try {
+      ticketDataStatus = "loading";
+      ticketData = await loadTicketData();
+      ticketDataStatus = ticketData.length ? "ready" : "empty";
+    } catch (error) {
+      ticketDataStatus = "error";
+      ticketDataError =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+    } finally {
+      isTicketDataLoaded = true;
     }
   }
 
@@ -201,6 +223,9 @@
     <Map
       {festivalData}
       {countryStripData}
+      {ticketData}
+      ticketDataStatus={ticketDataStatus}
+      ticketDataError={ticketDataError}
       {legendStage}
       on:ready={handleMapLoaded}
       on:legendNext={() => (legendStage = "world")}

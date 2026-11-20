@@ -1,13 +1,12 @@
 <script lang="ts">
   import {
     createContinentStrip,
-    createCountryStrip,
     type CountryStripData,
   } from "./utils/countryStripData";
   import {
-    addCountryRepresentationToStrip,
     type CountryRepresentation,
   } from "./utils/festivalCountries";
+  import { createEventCountryStrip, eventCountryStripLayout } from "./utils/eventCountryStrip";
 
   export let data: CountryStripData | undefined;
   export let representation: CountryRepresentation | undefined;
@@ -15,20 +14,17 @@
   let width = 0;
   let height = 0;
 
-  const continentStripWidth = 30;
-  const countryStripWidth = 20;
-  const stripLabelHeight = 28;
-  const stripWidth = 60;
+  const continentStripWidth = eventCountryStripLayout.continentWidth;
+  const countryStripWidth = eventCountryStripLayout.countryWidth;
+  const stripWidth = eventCountryStripLayout.titleWidth;
 
-  $: countries = addCountryRepresentationToStrip(
-    createCountryStrip(data, Math.max(0, height - stripLabelHeight - 4)),
-    representation,
-  ).map((country) => ({ ...country, x: country.x + stripLabelHeight + 2 }));
+  $: countries = createEventCountryStrip(data, representation, height);
   $: continents = createContinentStrip(countries);
 </script>
 
 <div
   class="country-strip"
+  style:left={`${eventCountryStripLayout.leftInset}px`}
   style:width={`${stripWidth}px`}
   bind:clientWidth={width}
   bind:clientHeight={height}
@@ -39,11 +35,12 @@
       <text class="strip-title" x={stripWidth / 2} y="19" text-anchor="middle">Events</text>
       {#each countries as country (country.countryKey)}
         <rect
+          class:has-record={country.hasEventData}
+          class:without-record={!country.hasEventData}
           x={continentStripWidth}
           y={country.x}
           width={countryStripWidth}
           height={country.width}
-          fill-opacity={country.fillOpacity}
         />
       {/each}
       {#each continents as continent (continent.continent)}
@@ -73,15 +70,18 @@
 </div>
 
 <p class="visually-hidden">
-  {countries.length} country rectangles from the supplied world hex map are
-  arranged in six continent groups down the left edge of the map.
+  {countries.length} country rectangles from the curated country list are
+  arranged in six continent groups down the left edge of the map. Within each
+  continent, countries are ordered from most to fewest related event records
+  for the active festival selection. Countries with one or more events are dark
+  gray; countries without events are light gray. Unavailable counts follow known
+  counts.
 </p>
 
 <style>
   .country-strip {
     position: absolute;
     z-index: 3;
-    left: 2px;
     top: 0;
     height: 100%;
     pointer-events: none;
@@ -92,7 +92,11 @@
   }
 
   rect {
-    fill: #252525;
+    fill: #d6d6d6;
+  }
+
+  rect.has-record {
+    fill: #9b9b9b;
   }
 
   rect.continent {

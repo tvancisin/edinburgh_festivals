@@ -74,6 +74,7 @@ export type RepresentedWorldHexLayout = Omit<WorldHexLayout, "panels"> & {
 };
 
 export type RepresentedWorldCountryStripCell = CountryStripCell & {
+  eventCount: number | null;
   hasEventData: boolean;
   fillOpacity: number;
 };
@@ -355,27 +356,28 @@ export function addCountryRepresentationToLayout(
 }
 
 /**
- * Mark each country-strip rectangle as represented when any source hex for
- * that country has a positive event count, then place represented countries
- * before unrepresented countries within their existing continent group. This
- * retains the separate UK nation matching used by the map while the strip
- * displays one UK rectangle.
+ * Retain each strip country's matched event count and the existing count-based
+ * opacity, then sort countries within each continent by descending event count.
+ * Equal counts retain source order; missing/unavailable matches retain null
+ * counts and sort after known counts. Continent order, rectangle size, raw rows,
+ * and the UK matching rules are unchanged.
  */
 export function addCountryRepresentationToStrip(
   countries: CountryStripCell[],
   representation: CountryRepresentation | undefined,
 ): RepresentedWorldCountryStripCell[] {
   const representedCountries = countries.map((country) => {
-    const hasEventData = representation
-      ? (representation.byKey.get(getHexCountryKey({
-        countryId: country.raw.id,
-        countryName: country.raw.name,
-      }))?.eventCount ?? 0) > 0
-      : false;
+    const matchedCountry = representation?.byKey.get(getHexCountryKey({
+      countryId: country.raw.id,
+      countryName: country.raw.name,
+    }));
+    const eventCount = matchedCountry?.eventCount ?? null;
+    const hasEventData = eventCount !== null && eventCount > 0;
     return {
       ...country,
+      eventCount,
       hasEventData,
-      fillOpacity: hasEventData ? 1 : countryOpacity.noRecords,
+      fillOpacity: matchedCountry?.fillOpacity ?? countryOpacity.noRecords,
     };
   });
   const byContinent = new Map<CountryStripCell["continent"], RepresentedWorldCountryStripCell[]>();
@@ -385,7 +387,11 @@ export function addCountryRepresentationToStrip(
     byContinent.set(country.continent, members);
   }
   const orderedCountries = [...byContinent.values()].flatMap((members) =>
-    members.sort((first, second) => Number(second.hasEventData) - Number(first.hasEventData)),
+    members.sort((first, second) => {
+      if (first.eventCount === null) return second.eventCount === null ? 0 : 1;
+      if (second.eventCount === null) return -1;
+      return second.eventCount - first.eventCount;
+    }),
   );
   const gaps = orderedCountries.map((country, index) =>
     index === 0 ? 0 : getCountryStripGap(orderedCountries[index - 1], country),

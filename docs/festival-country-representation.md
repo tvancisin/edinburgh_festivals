@@ -1,5 +1,53 @@
 # Festival country representation
 
+## Events strip connections
+
+Added November 19, 2026: `EventCountryConnections.svelte` renders one black
+cubic Bézier path for each highlighted country rectangle in the Events strip.
+Both components use `createEventCountryStrip` to share the same country layout,
+title clearance, continent grouping, and active festival representation.
+The compact `public/data/strip-countries.json` is the country source for these
+strips; its derivation is documented in [world-hex-map.md](world-hex-map.md).
+No new event rows or country assignments are introduced by the connections.
+
+`addCountryRepresentationToStrip` sorts countries within each continent by
+the active selection's event-record count, highest first. Continent order
+stays fixed. Equal counts retain their source order; unavailable or unmatched
+counts remain `null` and follow known counts, including zero. The input records
+and raw rows are retained without mutation. Both the Events strip and its
+connections use this shared ordering: each path starts at its country's new
+rectangle position, and endpoints follow the same continent and country order.
+Selecting or resetting a festival recalculates both layouts together.
+
+`createEventCountryConnections` explicitly selects cells with `hasEventData`
+and a positive rendered height. Each horizontal line starts at the right-edge
+midpoint of its country rectangle and keeps that y position. Its length is
+proportional to the selection's related event-record count; the largest reaches
+the midpoint between the Events strip and the central circle's left edge.
+The Events and Tickets strips each calculate their own length scale. Every
+connection retains its raw country record. Each line's stroke width
+matches its country rectangle's rendered height and updates with the shared
+responsive layout. Line width does not represent event counts or geographic
+journeys. Selecting/resetting a festival updates the highlighted
+countries and their connections together. Resizing updates their geometry,
+without animation. The layer does not intercept map or festival controls.
+A screen-reader summary lists the connected countries and reports an empty
+selection or unavailable data.
+
+Rectangle fill opacity and connection stroke opacity now use the same matched
+country aggregate's `fillOpacity` rather than a binary presence encoding.
+The existing fixed scale is reused: zero records have 0.1 opacity; positive
+counts of 1–19 have 0.35, 20–111 have 0.55, 112–300 have 0.75, and 301 or more
+have 0.95. The existing England/Scotland positive-count override remains 1.
+Unavailable or unmatched counts remain `null` and use the faint fallback;
+no connection is drawn without a positive count. Exact event-record counts
+are included in the connections' text alternative. Opacity updates with the
+festival selection; resizing changes geometry, not the count bands. No event
+rows, counting rules, country assignments, or rectangle sizes change. Country
+ordering follows the within-continent count sort described above.
+
+## Earlier world-map method
+
 The source is the existing `public/data/festivals_2025.csv`, containing 5,544
 source event rows for 2025. Its original CSV download URL, download date, and
 export version were not supplied. Event IDs in the file include Edinburgh

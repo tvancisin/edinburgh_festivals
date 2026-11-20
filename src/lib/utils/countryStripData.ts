@@ -89,7 +89,7 @@ export function validateCountryStripFile(value: unknown): RawCountryStripFile {
 
 /** Lay out the curated country records in their continent display order. */
 export function createCountryStrip(
-  data: CountryStripData | undefined,
+  data: Pick<CountryStripData, "countries"> | undefined,
   width: number,
 ): CountryStripCell[] {
   if (!data || width <= 0) return [];
