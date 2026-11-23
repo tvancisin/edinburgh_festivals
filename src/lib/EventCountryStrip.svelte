@@ -1,25 +1,27 @@
 <script lang="ts">
   import {
-    createContinentStrip,
     type CountryStripData,
   } from "./utils/countryStripData";
   import {
     type CountryRepresentation,
   } from "./utils/festivalCountries";
   import { createEventCountryStrip, eventCountryStripLayout } from "./utils/eventCountryStrip";
+  import { createEventContinentSummaries } from "./utils/continentSummary";
+  import { createEventCountrySummaries } from "./utils/countrySummary";
+  import CountryStripDetails from "./CountryStripDetails.svelte";
 
   export let data: CountryStripData | undefined;
   export let representation: CountryRepresentation | undefined;
+  export let scope = "All festivals";
 
   let width = 0;
   let height = 0;
 
-  const continentStripWidth = eventCountryStripLayout.continentWidth;
-  const countryStripWidth = eventCountryStripLayout.countryWidth;
   const stripWidth = eventCountryStripLayout.titleWidth;
 
   $: countries = createEventCountryStrip(data, representation, height);
-  $: continents = createContinentStrip(countries);
+  $: continents = createEventContinentSummaries(countries);
+  $: countrySummaries = createEventCountrySummaries(countries);
 </script>
 
 <div
@@ -32,42 +34,18 @@
 >
   {#if countries.length}
     <svg {width} {height}>
-      <text class="strip-title" x={stripWidth / 2} y="19" text-anchor="middle">Events</text>
-      {#each countries as country (country.countryKey)}
-        <rect
-          class:has-record={country.hasEventData}
-          class:without-record={!country.hasEventData}
-          x={continentStripWidth}
-          y={country.x}
-          width={countryStripWidth}
-          height={country.width}
-        />
-      {/each}
-      {#each continents as continent (continent.continent)}
-        <rect
-          class="continent"
-          x="0"
-          y={continent.x}
-          width={continentStripWidth}
-          height={continent.width}
-        >
-          <title>{continent.continent}</title>
-        </rect>
-        <text
-          class="continent-label"
-          text-anchor="start"
-          dominant-baseline="middle"
-          transform={`translate(${continentStripWidth / 1.5} ${continent.x + 2}) rotate(90)`}
-        >{#if continent.continent === "North America" || continent.continent === "South America"}
-          <tspan x="0">{continent.continent === "North America" ? "North" : "South"}</tspan>
-          <tspan x="0" dy="1em">America</tspan>
-        {:else}
-          {continent.continent}
-        {/if}</text>
-      {/each}
+      <text class="strip-title" x="5" y="19" text-anchor="start">Event Origins</text>
     </svg>
   {/if}
 </div>
+
+<CountryStripDetails
+  summaries={continents}
+  countries={countrySummaries}
+  side="left"
+  {scope}
+  on:mapPreview
+/>
 
 <p class="visually-hidden">
   {countries.length} country rectangles from the curated country list are
@@ -75,7 +53,12 @@
   continent, countries are ordered from most to fewest related event records
   for the active festival selection. Countries with one or more events are dark
   gray; countries without events are light gray. Unavailable counts follow known
-  counts.
+  counts. Hover, focus, or tap a continent to see how many of its displayed
+  countries have event records and how many have none. The central map previews
+  event records associated with that continent while its summary is open. Moving
+  away or dismissing the summary restores the current festival selection.
+  Hover, focus, or tap a country to see its exact event-record count and preview
+  its associated event records on the map.
 </p>
 
 <style>
@@ -89,26 +72,7 @@
 
   svg {
     display: block;
-  }
-
-  rect {
-    fill: #d6d6d6;
-  }
-
-  rect.has-record {
-    fill: #9b9b9b;
-  }
-
-  rect.continent {
-    fill: #b8b7b2;
-    stroke: none;
-  }
-
-  .continent-label {
-    fill: #252525;
-    font-size: 10px;
-    font-weight: 700;
-    pointer-events: none;
+    overflow: visible;
   }
 
   .strip-title {

@@ -7,6 +7,7 @@
   } from "./lib/utils/countryStripData";
   import { loadTicketData, type TicketData } from "./lib/utils/ticketData";
   import Map from "./lib/Map.svelte";
+  import { nextLegendStage, type LegendStage } from "./lib/utils/legendGuide";
   import FestivalHistory from "./lib/FestivalHistory.svelte";
   import { festivals } from "./lib/utils/festivals.js";
   import {
@@ -33,7 +34,6 @@
 
   type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
   type TicketDataStatus = FestivalDataStatus;
-  type LegendStage = "hidden" | "central" | "world";
 
   let showExplorer = false;
   let legendStage: LegendStage = "hidden";
@@ -228,7 +228,7 @@
       ticketDataError={ticketDataError}
       {legendStage}
       on:ready={handleMapLoaded}
-      on:legendNext={() => (legendStage = "world")}
+      on:legendNext={() => (legendStage = nextLegendStage(legendStage))}
       on:legendDismiss={() => (legendStage = "hidden")}
     />
   </div>

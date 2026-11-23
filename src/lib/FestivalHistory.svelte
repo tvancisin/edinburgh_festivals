@@ -86,24 +86,26 @@
   $: pandemicExceptionIndex = timelineRows.findIndex(
     (timeline) => timeline.name === pandemicExceptionFestival,
   );
-  $: pandemicExceptionPreviousTimeline = pandemicExceptionIndex > 0
-    ? timelineRows[pandemicExceptionIndex - 1]
-    : undefined;
+  $: pandemicExceptionPreviousTimeline =
+    pandemicExceptionIndex > 0
+      ? timelineRows[pandemicExceptionIndex - 1]
+      : undefined;
   $: pandemicExceptionNextTimeline =
-    pandemicExceptionIndex >= 0 && pandemicExceptionIndex < timelineRows.length - 1
+    pandemicExceptionIndex >= 0 &&
+    pandemicExceptionIndex < timelineRows.length - 1
       ? timelineRows[pandemicExceptionIndex + 1]
       : undefined;
   $: pandemicExceptionTop = pandemicExceptionPreviousTimeline
     ? Math.min(
-      pandemicIndicatorBottom,
-      pandemicExceptionPreviousTimeline.y + 20,
-    )
+        pandemicIndicatorBottom,
+        pandemicExceptionPreviousTimeline.y + 20,
+      )
     : pandemicIndicatorBottom;
   $: pandemicExceptionBottom = pandemicExceptionNextTimeline
     ? Math.max(
-      pandemicIndicatorTop,
-      pandemicExceptionNextTimeline.y - dataBarHeight - 16,
-    )
+        pandemicIndicatorTop,
+        pandemicExceptionNextTimeline.y - dataBarHeight - 16,
+      )
     : pandemicIndicatorTop;
   $: pandemicIndicatorSegments = [
     {
@@ -140,10 +142,7 @@
   ): string {
     const width = endX - startX;
     const relativeWidth = fullTimelineWidth > 0 ? width / fullTimelineWidth : 1;
-    const variationScale = Math.max(
-      1,
-      Math.min(1, relativeWidth),
-    );
+    const variationScale = Math.max(1, Math.min(1, relativeWidth));
     const pointCount = Math.max(
       2,
       Math.round(handwrittenPoints.length * variationScale),
@@ -154,16 +153,21 @@
       .slice(0, pointCount);
     const points: [number, number][] = [
       [startX, y],
-      ...selectedPoints.map(({ offset, position }) => [
-        startX + width * position,
-        y + offset * variationScale,
-      ] as [number, number]),
+      ...selectedPoints.map(
+        ({ offset, position }) =>
+          [startX + width * position, y + offset * variationScale] as [
+            number,
+            number,
+          ],
+      ),
       [endX, y],
     ];
 
-    return d3.line<[number, number]>().curve(d3.curveCatmullRom.alpha(0.5))(
-      points,
-    ) ?? "";
+    return (
+      d3.line<[number, number]>().curve(d3.curveCatmullRom.alpha(0.5))(
+        points,
+      ) ?? ""
+    );
   }
 </script>
 
@@ -196,9 +200,9 @@
       Festival to the 2004 Edinburgh Art Festival. Each line begins at the
       festival's foundation year and extends through {currentYear}. Bars above
       every timeline show that events data is available from 2012 to 2026. A
-      background-colour band spanning 2020 identifies the COVID pandemic, with
-      a gap for the Book Festival because its timeline and events data continue
-      in 2020. Dashed lines mark the pandemic start and end. Outlined bars below
+      background-colour band spanning 2020 identifies the COVID pandemic, with a
+      gap for the Book Festival because its timeline and events data continue in
+      2020. Dashed lines mark the pandemic start and end. Outlined bars below
       those show ticketing data availability: Fringe in 2019 and 2021 to 2026,
       International in 2022 to 2026, Tattoo in 2024 to 2026, and Book in 2024 to
       2025. Labels on the top festival row identify the foundation year, events
@@ -207,15 +211,6 @@
     </desc>
     {#each timelineRows as timeline, index}
       <g class="timeline-row">
-        <!--
-        <line
-          class="timeline-line"
-          x1={timeline.startX}
-          x2={timeline.endX}
-          y1={timeline.y}
-          y2={timeline.y}
-        />
-        -->
         <path class="timeline-line" d={timeline.timelinePath} />
         <circle
           class="foundation-marker"
@@ -384,13 +379,14 @@
   }
 
   .foundation-year {
-    font-size: clamp(0.6875rem, 1.6vw, 0.875rem);
+    font-size: clamp(0.6875rem, 1.6vw, 1rem);
+    font-weight: 700;
   }
 
   .data-legend-label {
     fill: #252525;
     font-family: inherit;
-    font-size: clamp(0.625rem, 1.4vw, 0.75rem);
+    font-size: clamp(0.625rem, 1.4vw, 1rem);
     letter-spacing: -0.02em;
   }
 
@@ -411,8 +407,9 @@
   .data-period-tick-label {
     fill: #252525;
     font-family: inherit;
-    font-size: clamp(0.6875rem, 1.6vw, 0.875rem);
+    font-size: clamp(0.6875rem, 1.6vw, 1rem);
     letter-spacing: -0.02em;
+    font-weight: 700;
   }
 
   .pandemic-indicator {

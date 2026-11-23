@@ -1,5 +1,89 @@
 # Festival country representation
 
+## Continent map previews
+
+Added November 23, 2026. Hovering or focusing a continent in the Events strip
+temporarily filters the central Edinburgh venue map to associated event records.
+Tapping pins the same preview while the continent summary remains open; a
+second tap, Escape, or an outside click dismisses it. Moving away from an
+unpinned summary restores the current festival selection. Moving to a country
+rectangle switches to that country's preview, as described below.
+The Visitors strip does not filter the map.
+
+`filterEventRecordsByContinent` in `eventContinentFilter.ts` uses the existing
+festival selection's resolved event-country relations. A country key belongs
+to the preview when one of its retained raw catalog rows has that continent.
+Separate UK-nation keys use their catalog assignments. Generic UK records
+without a displayed cell, unmatched country values, and missing country values
+receive no inferred continent. A multi-country event record appears once in a
+preview if any of its resolved countries belongs to the continent. It may appear
+in more than one continent's preview. Repeated source records and their order,
+object references, and raw rows are preserved; no deduplication is performed.
+
+The map then applies its existing coordinate filter and hexagon grouping.
+Hexagon opacity is recalculated for the preview's record counts with the
+existing scale. Records without coordinates remain in the source collection
+and country totals. A continent with no matching mapped locations clears the
+hexagons. The screen-reader summary includes the previewed continent, current
+festival scope, and empty or unavailable states. No filter label is displayed
+inside the map circle. Strip country counts, ordering, connection lengths, and the selected
+festival are unchanged by this temporary map filter.
+
+## Country map previews
+
+Added November 23, 2026. Country rectangles in the Events strip now preview
+their associated event records on the central map through hover, keyboard
+focus, or tap. Country and continent previews share one active selection per
+strip. Leaving an unpinned summary or dismissing it restores the current
+festival selection. Tapping again, Escape, or an outside click dismisses a
+pinned preview. The Visitors strip continues to show tooltips without filtering
+the map. No visible filter label is added inside the map circle.
+
+`filterEventRecordsByCountry` in `eventCountryFilter.ts` finds the displayed
+country's existing aggregate key by matching its retained catalog row's ID,
+name, and continent. It selects the existing festival selection's event-country
+relations containing that key. UK-nation assignments stay distinct; generic UK
+records are not assigned to Scotland or another nation. Multi-country records
+are included once per matching source record, while repeated source records,
+order, event objects, and raw rows are retained. A known country with no
+matching event records yields an empty map selection. Unavailable country data
+remains unavailable. The same coordinate filter, hexagon grouping, and opacity
+scale used for continent previews apply. Country totals and strip order remain
+based on the festival selection.
+
+## Continent summaries
+
+Added November 23, 2026. Hovering, focusing, or tapping a continent rectangle
+in the Events strip opens a summary of displayed countries with one or more
+event records and displayed countries with exactly zero records. The counts
+follow the active festival selection. The active continent has a dark outline
+and becomes 10% wider, without animation; its country cells and values stay
+the same. Tapping again, pressing Escape, or clicking elsewhere dismisses the
+summary. Pointer users can move into the summary to read it.
+
+`continentSummary.ts` groups the existing strip cells by continent in their
+current order and counts each displayed cell once. Positive event counts
+contribute to countries with records; zero contributes to countries without
+records. Missing matches, unloaded data, or invalid numeric counts contribute
+only to a separately labeled unavailable count. The total is limited to the
+curated countries shown in that strip; it is not a total for every country in
+the world. The summary retains the grouped cells and their raw catalog rows
+and does not alter source data, event-country matching, or country order.
+Each continent control exposes the same counts in its accessible name.
+
+## Country tooltips
+
+Added November 23, 2026. Hovering, focusing, or tapping a country rectangle
+shows its name and exact related event-record count for the active festival
+selection. These are event records, not unique productions or performances.
+`countrySummary.ts` retains every displayed country and raw catalog row and
+adds the existing count without further aggregation or deduplication. Missing
+or invalid counts remain unavailable; a known zero is displayed as zero.
+The shared `CountryStripDetails.svelte` component shows one country or continent
+tooltip at a time per strip. Escape, an outside click, or a second tap dismisses
+it. Keyboard users can Tab into the country list and move through its displayed
+order with Up/Down Arrow or Home/End, without hundreds of additional Tab stops.
+
 ## Events strip connections
 
 Added November 19, 2026: `EventCountryConnections.svelte` renders one black

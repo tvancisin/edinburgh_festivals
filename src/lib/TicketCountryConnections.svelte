@@ -40,21 +40,21 @@
 
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">
     {#if status === "loading"}
-      <p>Ticket-country connections are loading.</p>
+      <p>Visitor-country connections are loading.</p>
     {:else if status === "error"}
-      <p>Ticket-country connections are unavailable: {error}</p>
+      <p>Visitor-country connections are unavailable: {error}</p>
     {:else if status === "empty"}
-      <p>Ticket-country connections are unavailable because no ticket data is available.</p>
+      <p>Visitor-country connections are unavailable because no visitor data is available.</p>
     {:else if !data || !representation}
-      <p>Ticket-country connections are unavailable while country data is loading or unavailable.</p>
+      <p>Visitor-country connections are unavailable while country data is loading or unavailable.</p>
     {:else if connections.length === 0}
-      <p>No countries with ticket-data entries are connected.</p>
+      <p>No countries with visitors are connected.</p>
     {:else}
       <p>
-        {connections.length} countries with ticket-data entries connect from the
-        right-hand Tickets strip with horizontal lines toward the central circle.
-        Connections are solid black. Line length is proportional to entries from
-        that country; the longest stops midway between the Tickets strip and the
+        {connections.length} countries with visitors connect from the
+        right-hand Visitors strip with horizontal lines toward the central circle.
+        Connections are solid black. Line length is proportional to visitors from
+        that country; the longest stops midway between the Visitors strip and the
         circle edge. Line width matches the country rectangle height.
       </p>
       <ul>

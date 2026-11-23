@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    createContinentStrip,
     type CountryStripData,
   } from "./utils/countryStripData";
   import {
@@ -9,6 +8,9 @@
     ticketCountryStripLayout,
     type TicketCountryRepresentation,
   } from "./utils/ticketCountries";
+  import { createTicketContinentSummaries } from "./utils/continentSummary";
+  import { createVisitorCountrySummaries } from "./utils/countrySummary";
+  import CountryStripDetails from "./CountryStripDetails.svelte";
 
   export let data: CountryStripData | undefined = undefined;
   export let representation: TicketCountryRepresentation | undefined = undefined;
@@ -19,15 +21,19 @@
   let height = 0;
 
 
-  const { continentWidth: continentStripWidth, countryWidth: countryStripWidth,
-    contentOffset: stripContentOffset, titleWidth: stripWidth } = ticketCountryStripLayout;
+  const stripWidth = ticketCountryStripLayout.titleWidth;
 
   $: countries = createTicketCountryStrip(
     data,
     representation,
     height,
   );
-  $: continents = createContinentStrip(countries);
+  $: continents = createTicketContinentSummaries(countries, representation);
+  $: countrySummaries = createVisitorCountrySummaries(countries, representation);
+  $: scope = status === "loading" ? "Loading visitor data"
+    : status === "error" ? "Visitor data unavailable"
+    : status === "empty" ? "No visitor data available"
+    : "All loaded visitors";
   
 </script>
 
@@ -40,65 +46,34 @@
 >
   {#if countries.length}
     <svg {width} {height}>
-      <text class="strip-title" x={stripWidth / 2} y="19" text-anchor="middle"
-        >Tickets</text
+      <text class="strip-title" x={width - 5} y="19" text-anchor="end"
+        >Visitor Origins</text
       >
-      {#each countries as country (country.countryKey)}
-        <rect
-          class:has-record={country.purchaseRecordCount > 0}
-          class:without-record={country.purchaseRecordCount === 0}
-          x={stripContentOffset}
-          y={country.x}
-          width={countryStripWidth}
-          height={country.width}
-        />
-      {/each}
-      {#each continents as continent (continent.continent)}
-        <rect
-          class="continent"
-          x={stripContentOffset + countryStripWidth}
-          y={continent.x}
-          width={continentStripWidth}
-          height={continent.width}
-        >
-          <title>{continent.continent}</title>
-        </rect>
-        <text
-          class="continent-label"
-          text-anchor="start"
-          dominant-baseline="middle"
-          transform={`translate(${stripContentOffset + countryStripWidth + continentStripWidth / 1.5} ${continent.x + 2}) rotate(90)`}
-          >{#if continent.continent === "North America" || continent.continent === "South America"}
-            <tspan x="0"
-              >{continent.continent === "North America"
-                ? "North"
-                : "South"}</tspan
-            >
-            <tspan x="0" dy="1em">America</tspan>
-          {:else}
-            {continent.continent}
-          {/if}</text
-        >
-      {/each}
     </svg>
   {/if}
 </div>
 
+<CountryStripDetails summaries={continents} countries={countrySummaries} side="right" {scope} />
+
 <p class="visually-hidden">
   {#if status === "loading"}
-    Loading ticket purchase data.
+    Loading visitor data.
   {:else if status === "error"}
-    Ticket purchase data could not be loaded: {error}
+    Visitor data could not be loaded: {error}
   {:else if status === "empty"}
-    No ticket purchase data is available.
+    No visitor data is available.
   {:else}
     {#if representation}
       {describeTicketCountryRepresentation(representation)} The {countries.length}
       country rectangles are grouped by continent and ordered within each group by
-      descending ticket-data entry count. Countries with one or more entries are
-      dark gray; countries without entries are light gray.
+      descending visitor count. Countries with one or more visitors are
+      dark gray; countries without visitors are light gray. Hover, focus, or tap
+      a continent to see how many of its displayed countries have visitors
+      and how many have none. Hover, focus, or tap a country to see its visitor count.
+      Each source row represents one unique visitor, as confirmed by the source
+      definition. Ticket quantities are not counted.
     {:else}
-      Ticket purchase data is available but its country representation cannot be
+      Visitor data is available but its country representation cannot be
       created.
     {/if}
   {/if}
@@ -116,26 +91,7 @@
 
   svg {
     display: block;
-  }
-
-  rect {
-    fill: #d6d6d6;
-  }
-
-  rect.has-record {
-    fill: #9b9b9b;
-  }
-
-  rect.continent {
-    fill: #b8b7b2;
-    stroke: none;
-  }
-
-  .continent-label {
-    fill: #252525;
-    font-size: 10px;
-    font-weight: 700;
-    pointer-events: none;
+    overflow: visible;
   }
 
   .strip-title {

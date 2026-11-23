@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
+  import { createEventDispatcher, onMount, tick } from "svelte";
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
   import * as maplibregl from "maplibre-gl";
@@ -7,11 +7,15 @@
   import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
   import "maplibre-gl/dist/maplibre-gl.css";
   import LegendGuide from "./LegendGuide.svelte";
+  import type { LegendStage } from "./utils/legendGuide";
   import EventCountryStrip from "./EventCountryStrip.svelte";
   import EventCountryConnections from "./EventCountryConnections.svelte";
   import TicketCountryStrip from "./TicketCountryStrip.svelte";
   import TicketCountryConnections from "./TicketCountryConnections.svelte";
   import type { CountryStripData } from "./utils/countryStripData";
+  import type { StripDetail } from "./utils/countrySummary";
+  import { filterEventRecordsByContinent } from "./utils/eventContinentFilter";
+  import { filterEventRecordsByCountry } from "./utils/eventCountryFilter";
   import FestivalTimeline from "./FestivalTimeline.svelte";
   import type {
     FestivalDataByFestival,
@@ -45,7 +49,7 @@
   export let ticketDataStatus: "loading" | "ready" | "empty" | "error" =
     "loading";
   export let ticketDataError = "";
-  export let legendStage: "hidden" | "central" | "world" = "hidden";
+  export let legendStage: LegendStage = "hidden";
 
   const dispatch = createEventDispatcher<{
     ready: void;
@@ -54,6 +58,7 @@
   }>();
 
   const hexBinRadius = 16;
+  const mapCircleTimelineOffset = 5;
 
   // Vite serves the MapLibre worker from an explicit bundled asset URL.
   maplibregl.setWorkerUrl(maplibreWorkerUrl);
@@ -66,6 +71,7 @@
   let circleY = 0;
   let circleRadius = 0;
   let selectedFestivalData: FestivalDataGroup | undefined;
+  let mapPreview: StripDetail | null = null;
   let eventMarkerLayer: L.LayerGroup | undefined;
   let eventMarkerRenderer: L.Canvas | undefined;
   let displayedEvents: FestivalDataGroup["events"] | undefined;
@@ -75,7 +81,7 @@
 
   $: circleX = width / 2;
   $: circleY = height / 2;
-  $: circleRadius = Math.max(0, Math.min(width / 2 - 32, height / 2 - 62));
+  $: circleRadius = Math.max(0, Math.min(width / 2 - 27, height / 2 - 57));
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
@@ -87,6 +93,11 @@
     activeEvents && countryCatalog
       ? aggregateCountryRepresentation(activeEvents, countryCatalog)
       : undefined;
+  $: mapEvents = mapPreview === null
+    ? activeEvents
+    : mapPreview.kind === "continent"
+      ? filterEventRecordsByContinent(countryRepresentation, mapPreview.summary.continent)
+      : filterEventRecordsByCountry(countryRepresentation, mapPreview.summary.raw);
   $: ticketCountryCatalog = countryStripData
     ? createTicketCountryCatalog(countryStripData)
     : undefined;
@@ -95,7 +106,7 @@
       ? aggregateTicketCountryRepresentation(ticketData, ticketCountryCatalog)
       : undefined;
   $: countryScope = selectedFestivalData?.festival ?? "All festivals";
-  $: if (eventMarkerLayer && activeEvents) renderEventHexBins(activeEvents);
+  $: if (eventMarkerLayer && mapEvents) renderEventHexBins(mapEvents);
   onMount(() => {
     map = L.map(mapElement, {
       center: [55.9533, -3.1883],
@@ -140,6 +151,12 @@
 
   function resetFestivalSelection() {
     selectedFestivalData = undefined;
+  }
+
+  async function dismissLegendGuide() {
+    dispatch("legendDismiss");
+    await tick();
+    mapElement.focus({ preventScroll: true });
   }
 
   function renderEventHexBins(events: FestivalDataGroup["events"]) {
@@ -241,7 +258,16 @@
       {eventLocationCount} source event records grouped into hexagons
       {selectedFestivalData
         ? `for ${selectedFestivalData.festival}`
-        : "across all festivals"}.
+        : "across all festivals"}{mapPreview?.kind === "continent"
+        ? `, associated with countries in ${mapPreview.summary.continent}`
+        : mapPreview?.kind === "country"
+          ? `, associated with ${mapPreview.summary.countryName}`
+          : ""}.
+      {#if mapPreview !== null && mapEvents === undefined}
+        Event data is unavailable.
+      {:else if mapPreview !== null && eventLocationCount === 0}
+        No event locations available.
+      {/if}
     </p>
   {/if}
   <ul class="visually-hidden" aria-label="Festival date ranges from 2025">
@@ -251,6 +277,11 @@
   </ul>
   <div
     class="map-canvas"
+    class:guide-highlighted={legendStage === "central"}
+    style:clip-path={legendStage === "central"
+      ? `circle(${circleRadius}px at ${circleX}px ${circleY}px)`
+      : undefined}
+    inert={legendStage !== "hidden"}
     bind:this={mapElement}
     bind:clientWidth={width}
     bind:clientHeight={height}
@@ -259,6 +290,7 @@
     <button
       class="selection-reset"
       type="button"
+      inert={legendStage !== "hidden"}
       on:click={resetFestivalSelection}
       aria-label="Return to all festivals"
     >
@@ -277,8 +309,7 @@
   </div> -->
   <svg
     class="panel-overlay"
-    role="group"
-    aria-label="Festival timeline"
+    aria-hidden="true"
     {width}
     {height}
   >
@@ -296,42 +327,75 @@
       </mask>
     </defs>
     <rect {width} {height} fill="#F8F7F4" mask="url(#map-window-mask)" />
-    <FestivalTimeline
-      {circleX}
-      {circleY}
-      {circleRadius}
-      {festivalData}
-      selectedFestivalDataName={selectedFestivalData?.festival ?? null}
-      on:select={handleFestivalSelect}
-    />
   </svg>
-  <EventCountryConnections
-    data={countryStripData}
-    representation={countryRepresentation}
-    scope={countryScope}
-    {circleRadius}
-  />
-  <EventCountryStrip data={countryStripData} representation={countryRepresentation} />
-  <TicketCountryConnections
-    data={countryStripData}
-    representation={ticketCountryRepresentation}
-    status={ticketDataStatus}
-    error={ticketDataError}
-    {circleRadius}
-  />
-  <TicketCountryStrip
-    data={countryStripData}
-    representation={ticketCountryRepresentation}
-    status={ticketDataStatus}
-    error={ticketDataError}
-  />
+  <div
+    class="timeline-overlay"
+    class:guide-highlighted={legendStage === "timeline"}
+    inert={legendStage !== "hidden"}
+  >
+    <svg
+      role="group"
+      aria-label="Radial timeline and festival arcs"
+      {width}
+      {height}
+    >
+      <FestivalTimeline
+        {circleX}
+        {circleY}
+        circleRadius={Math.max(0, circleRadius - mapCircleTimelineOffset)}
+        {festivalData}
+        selectedFestivalDataName={selectedFestivalData?.festival ?? null}
+        on:select={handleFestivalSelect}
+      />
+    </svg>
+  </div>
+  <div
+    class="country-layer"
+    class:guide-highlighted={legendStage === "events"}
+    inert={legendStage !== "hidden"}
+  >
+    <EventCountryConnections
+      data={countryStripData}
+      representation={countryRepresentation}
+      scope={countryScope}
+      {circleRadius}
+    />
+    <EventCountryStrip
+      data={countryStripData}
+      representation={countryRepresentation}
+      scope={countryScope}
+      on:mapPreview={(event) => (mapPreview = event.detail)}
+    />
+  </div>
+  <div
+    class="country-layer"
+    class:guide-highlighted={legendStage === "tickets"}
+    inert={legendStage !== "hidden"}
+  >
+    <TicketCountryConnections
+      data={countryStripData}
+      representation={ticketCountryRepresentation}
+      status={ticketDataStatus}
+      error={ticketDataError}
+      {circleRadius}
+    />
+    <TicketCountryStrip
+      data={countryStripData}
+      representation={ticketCountryRepresentation}
+      status={ticketDataStatus}
+      error={ticketDataError}
+    />
+  </div>
+  {#if legendStage !== "hidden"}
+    <div class="guide-dimmer" aria-hidden="true"></div>
+  {/if}
   <LegendGuide
     stage={legendStage}
     {circleX}
     {circleY}
     {circleRadius}
     on:next={() => dispatch("legendNext")}
-    on:dismiss={() => dispatch("legendDismiss")}
+    on:dismiss={dismissLegendGuide}
   />
 </section>
 
@@ -359,11 +423,38 @@
     pointer-events: none;
   }
 
+  .timeline-overlay,
+  .country-layer {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .country-layer {
+    /* Let continent tooltips sit above either strip without covering the map
+       with an interactive full-size layer. The guide can still lift a group. */
+    z-index: auto;
+  }
+
+  .guide-dimmer {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
+    background: #ffffff;
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .guide-highlighted {
+    z-index: 5;
+  }
+
   .selection-reset {
     position: absolute;
     z-index: 2;
     bottom: 1rem;
-    left: 4rem;
+    left: 6rem;
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;

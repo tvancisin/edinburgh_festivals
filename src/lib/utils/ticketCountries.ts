@@ -147,6 +147,8 @@ export function normalizeTicketCountryName(value: string): string {
 /**
  * Count each ticket CSV record once at its matched country. ORDER_QUANTITY is
  * retained only on raw rows and does not affect country representation.
+ * The user confirmed on November 23, 2026 that the source defines each row
+ * as one unique visitor; no person matching or deduplication is inferred here.
  */
 export function aggregateTicketCountryRepresentation(
   tickets: TicketData[],
@@ -310,12 +312,12 @@ export function describeTicketCountryRepresentation(
     );
   const leader = representedCountries[0];
   return (
-    `${representation.purchaseRecordCount.toLocaleString("en-GB")} ticket-data entries; ` +
-    `${representedCountries.length} represented countries have one or more entries. ` +
+    `${representation.purchaseRecordCount.toLocaleString("en-US")} visitors; ` +
+    `${representedCountries.length} represented countries have one or more visitors. ` +
     (leader
       ? `Largest: ${leader.name}, ${formatTicketCountryRecordCount(leader.purchaseRecordCount)}. `
-      : "No represented country has any entries. ") +
-    `${representation.unmatchedCountryRecordCount.toLocaleString("en-GB")} entries have an unmatched country.`
+      : "No represented country has any visitors. ") +
+    `${representation.unmatchedCountryRecordCount.toLocaleString("en-US")} visitors have an unmatched country.`
   );
 }
 
@@ -328,7 +330,7 @@ function createUnmatchedTicketCountryValue(value: string, ticketRows: TicketData
 }
 
 export function formatTicketCountryRecordCount(value: number): string {
-  return `${value.toLocaleString("en-GB")} ticket-data ${value === 1 ? "entry" : "entries"}`;
+  return `${value.toLocaleString("en-US")} ${value === 1 ? "visitor" : "visitors"}`;
 }
 
 function heightForCountries(countries: CountryStripCell[]): number {

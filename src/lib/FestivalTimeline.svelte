@@ -203,7 +203,7 @@
       x1="0"
       x2="0"
       y1={-(circleRadius + mapToTimelineGap)}
-      y2={-(circleRadius + mapToTimelineGap + 7)}
+      y2={-(circleRadius + mapToTimelineGap - 7)}
       transform={`rotate(${(tick.angle * 180) / Math.PI})`}
     />
     <text
@@ -273,7 +273,7 @@
   }
 
   .month-label {
-    fill: #666666;
+    fill: #717171;
     letter-spacing: -0.05em;
     font-size: 12px;
     font-weight: 700;
