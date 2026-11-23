@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { loadFestivalDataByFestival } from "./lib/utils/festivalData";
+  import { onMount, tick } from "svelte";
+  import { loadFestivalDataByFestival, loadFestivalDatasets } from "./lib/utils/festivalData";
+  import { createVenueActivityData, type VenueActivityData } from "./lib/utils/venueActivity";
   import {
     loadCountryStripData,
     type CountryStripData,
@@ -9,6 +10,7 @@
   import Map from "./lib/Map.svelte";
   import { nextLegendStage, type LegendStage } from "./lib/utils/legendGuide";
   import FestivalHistory from "./lib/FestivalHistory.svelte";
+  import VenueExplorer from "./lib/VenueExplorer.svelte";
   import { festivals } from "./lib/utils/festivals.js";
   import {
     calculateFestivalHistoryHorizontalMargin,
@@ -36,6 +38,11 @@
   type TicketDataStatus = FestivalDataStatus;
 
   let showExplorer = false;
+  let showVenueExplorer = false;
+  let venueExplorerButton: HTMLButtonElement;
+  let venueActivityData: VenueActivityData | undefined;
+  let venueDataStatus: FestivalDataStatus = "loading";
+  let venueDataError = "";
   let legendStage: LegendStage = "hidden";
   let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
   let festivalDataStatus: FestivalDataStatus = "loading";
@@ -93,6 +100,29 @@
   function showDataExplorer() {
     showExplorer = true;
     legendStage = "central";
+  }
+
+  async function closeVenueExplorer() {
+    showVenueExplorer = false;
+    await tick();
+    venueExplorerButton.focus({ preventScroll: true });
+  }
+
+  function openVenueExplorer() {
+    showVenueExplorer = true;
+    if (!venueActivityData) void fetchVenueActivity();
+  }
+
+  async function fetchVenueActivity() {
+    venueDataStatus = "loading";
+    venueDataError = "";
+    try {
+      venueActivityData = createVenueActivityData(await loadFestivalDatasets());
+      venueDataStatus = venueActivityData.venues.length > 0 ? "ready" : "empty";
+    } catch (error) {
+      venueDataStatus = "error";
+      venueDataError = error instanceof Error ? error.message : "An unknown error occurred.";
+    }
   }
 
   async function fetchFestivalData() {
@@ -184,16 +214,25 @@
 {/if}
 
 {#if !showExplorer}
-  <a
-    class="logo"
-    href={basePath}
-    aria-label="Edinburgh Festivals home"
-  >
-    <img
-      src={`${basePath}/img/efi_dlm_logo_black.svg`}
-      alt="Edinburgh Futures Institute logo"
-    />
-  </a>
+  <nav aria-label="Exploration views" inert={showVenueExplorer}>
+    <a
+      class="logo"
+      href={basePath}
+      aria-label="Edinburgh Festivals home"
+    >
+      <img
+        src={`${basePath}/img/efi_dlm_logo_black.svg`}
+        alt="Edinburgh Futures Institute logo"
+      />
+    </a>
+    <button
+      class="venues-button"
+      type="button"
+      aria-haspopup="dialog"
+      bind:this={venueExplorerButton}
+      on:click={openVenueExplorer}
+    >Venues</button>
+  </nav>
 {/if}
 
 <p class="data-status" aria-live="polite">
@@ -212,6 +251,7 @@
 <main
   id="main-content"
   class:landing={!showExplorer}
+  inert={showVenueExplorer}
   bind:clientHeight={mainHeight}
   bind:clientWidth={mainWidth}
 >
@@ -252,6 +292,16 @@
     </section>
   {/if}
 </main>
+
+{#if showVenueExplorer}
+  <VenueExplorer
+    data={venueActivityData}
+    status={venueDataStatus}
+    error={venueDataError}
+    on:close={closeVenueExplorer}
+    on:retry={fetchVenueActivity}
+  />
+{/if}
 
 <style>
   #main-content {
@@ -351,6 +401,26 @@
     display: block;
     width: auto;
     height: 100%;
+  }
+
+  .venues-button {
+    position: fixed;
+    z-index: 1100;
+    top: clamp(0.5rem, 2vw, 0.625rem);
+    right: clamp(0.5rem, 2vw, 0.625rem);
+    min-height: 2.75rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #252525;
+    border-radius: 0.25rem;
+    background: #ffffff;
+    color: #252525;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .venues-button:hover {
+    background: #efeee9;
   }
 
   .intro {

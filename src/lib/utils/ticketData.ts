@@ -1,5 +1,8 @@
 import * as d3 from "d3";
 
+/** The supplied visitor export covers only this festival. */
+export const ticketDataFestival = "Royal Edinburgh Military Tattoo";
+
 /** Raw fields from the supplied 2025 Edinburgh Tattoo ticket export. */
 export type RawTicketData = {
   UK_POSTCODE: string;

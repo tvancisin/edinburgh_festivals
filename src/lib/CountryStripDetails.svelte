@@ -12,6 +12,7 @@
   export let countries: CountryRecordSummary[];
   export let side: "left" | "right";
   export let scope: string;
+  export let dataMessage: string | null = null;
 
   const dispatch = createEventDispatcher<{ mapPreview: StripDetail | null }>();
 
@@ -183,7 +184,9 @@
         height={country.width}
         role="button"
         tabindex={tabCountry?.countryKey === country.countryKey ? 0 : -1}
-        aria-label={`${scope}. ${country.accessibleLabel}`}
+        aria-label={dataMessage
+          ? `${country.countryName}: ${dataMessage}`
+          : `${scope}. ${country.accessibleLabel}`}
         aria-expanded={activeKey === countryDetailKey(country.countryKey)}
         aria-controls={activeKey === countryDetailKey(country.countryKey) ? tooltipId : undefined}
         use:registerCountry={country.countryKey}
@@ -201,7 +204,9 @@
         class:active={activeKey === continentDetailKey(summary.continent)}
         role="button"
         tabindex="0"
-        aria-label={`${label}. ${scope}. ${summary.accessibleLabel}`}
+        aria-label={dataMessage
+          ? `${label}. ${summary.continent}: ${dataMessage}`
+          : `${label}. ${scope}. ${summary.accessibleLabel}`}
         aria-expanded={activeKey === continentDetailKey(summary.continent)}
         aria-controls={activeKey === continentDetailKey(summary.continent) ? tooltipId : undefined}
         on:mouseenter={() => showOnHover(continentDetailKey(summary.continent))}
@@ -264,18 +269,22 @@
     >
       {#if active.kind === "country"}
         <h3>{active.summary.countryName}</h3>
-        <p>{active.summary.countLabel}</p>
+        <p>{dataMessage ?? active.summary.countLabel}</p>
       {:else}
         <h3>{active.summary.continent} · {label}</h3>
         <p class="summary-scope">{scope}</p>
-        <ul>
-          <li>{active.summary.withRecordsLabel}</li>
-          <li>{active.summary.withoutRecordsLabel}</li>
-          {#if active.summary.countriesWithUnavailableCounts > 0}
-            <li>{active.summary.unavailableLabel}</li>
-          {/if}
-        </ul>
-        <p class="summary-note">{active.summary.totalLabel}</p>
+        {#if dataMessage}
+          <p>{dataMessage}</p>
+        {:else}
+          <ul>
+            <li>{active.summary.withRecordsLabel}</li>
+            <li>{active.summary.withoutRecordsLabel}</li>
+            {#if active.summary.countriesWithUnavailableCounts > 0}
+              <li>{active.summary.unavailableLabel}</li>
+            {/if}
+          </ul>
+          <p class="summary-note">{active.summary.totalLabel}</p>
+        {/if}
       {/if}
     </div>
   {/if}

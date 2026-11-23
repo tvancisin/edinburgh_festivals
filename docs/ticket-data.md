@@ -23,6 +23,19 @@ source row exactly once, with no change to numeric values.
 
 ## Ticket-country strip method
 
+The source covers only the 2025 Royal Edinburgh Military Tattoo. The Visitor
+Origins strip shows visitor data and connecting lines in the default view and
+when the Tattoo arc is selected. Selecting any other festival keeps the heading,
+continent labels, and country rectangles visible, with neutral country fills
+and no connecting lines. Country and continent tooltips explain that visitor
+data is unavailable for that festival and show no numeric counts. The neutral
+layout uses catalog order within continents because no visitor counts apply.
+Resetting to all festivals or selecting Tattoo restores the data. A
+screen-reader message also explains unavailable visitor coverage for other
+festivals; it is not presented as zero visitors. The cached source rows and
+aggregates are retained, without filtering, changing, or replacing the data.
+`ticketDataFestival` in `ticketData.ts` records the export's festival scope.
+
 The right-hand Visitors strip uses `strip-countries.json` as its curated display
 catalog and continent source. The ticket-specific catalog adds a separate
 `United Kingdom` cell in Europe. This is deliberately distinct from the
@@ -63,8 +76,10 @@ Added November 23, 2026. Hovering, focusing, or tapping a continent rectangle
 in the Visitors strip shows how many displayed countries have one or more
 visitors and how many have exactly zero. Counts use the existing
 ticket-country aggregates, including the ticket catalog's separate generic
-United Kingdom cell. They cover all loaded visitors and do not follow
-the Events strip's festival filter. They count displayed countries, rather
+United Kingdom cell. They cover Tattoo visitors in the default view and the
+Tattoo selection; other festival selections keep the strip visible without data as described
+above. Events-strip country and continent previews do not change these counts.
+They count displayed countries, rather
 than ticket quantities or the number of visitors.
 
 The shared `continentSummary.ts` helper groups the strip's existing cells and

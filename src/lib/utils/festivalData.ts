@@ -85,40 +85,97 @@ export type FestivalDataGroup = {
   events: FestivalData[];
 };
 
+export type FestivalVenueGroup = [venueCode: string, events: FestivalData[]];
+
+export type FestivalDataset = {
+  fileName: string;
+  events: FestivalData[];
+  raw: RawFestivalData[];
+};
+
 export type FestivalDataByFestival = Record<string, FestivalDataGroup>;
 
-const festivalDataCsvPath = `${import.meta.env.BASE_URL}data/2025.csv`;
+// Add CSV filenames here to include them in the parallel load and venue logs.
+// Files live in public/data; original download URLs, dates, and versions were not supplied.
+export const festivalDataFiles = [
+  "2012.csv", "2013.csv", "2014.csv", "2015.csv", "2016.csv",
+  "2017.csv", "2018.csv", "2019.csv", "2020.csv", "2021.csv",
+  "2022.csv", "2023.csv", "2024.csv", "2025.csv", "2026.csv",
+];
+export const defaultFestivalDataFile = "2025.csv";
 const parseDate = d3.timeParse("%Y-%m-%d");
 const parseTimestamp = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
-let rawFestivalDataPromise: Promise<RawFestivalData[]> | undefined;
-let festivalDataPromise: Promise<FestivalData[]> | undefined;
+const rawFestivalDataPromises = new Map<string, Promise<RawFestivalData[]>>();
+let festivalDatasetsPromise: Promise<FestivalDataset[]> | undefined;
 let festivalDataByFestivalPromise: Promise<FestivalDataByFestival> | undefined;
 
-export function loadRawFestivalData() {
-  if (!rawFestivalDataPromise) {
-    rawFestivalDataPromise = d3
-      .csv<RawFestivalData>(festivalDataCsvPath, parseRawFestivalData)
+/** Cache each CSV separately so a failed file can retry without reloading successful files. */
+export function loadRawFestivalData(fileName = defaultFestivalDataFile): Promise<RawFestivalData[]> {
+  let promise = rawFestivalDataPromises.get(fileName);
+  if (!promise) {
+    promise = d3
+      .csv<RawFestivalData>(`${import.meta.env.BASE_URL}data/${fileName}`, parseRawFestivalData)
       .catch((error) => {
-        rawFestivalDataPromise = undefined;
+        rawFestivalDataPromises.delete(fileName);
         throw error;
       });
+    rawFestivalDataPromises.set(fileName, promise);
   }
 
-  return rawFestivalDataPromise;
+  return promise;
 }
 
-export function loadFestivalData() {
-  if (!festivalDataPromise) {
-    festivalDataPromise = loadRawFestivalData()
-      .then((rows) => rows.map(toFestivalData))
+/** Load all configured files concurrently, keeping their rows separate by filename.
+ * Log venue-code groups per file and across all files once every load succeeds.
+ */
+export function loadFestivalDatasets(): Promise<FestivalDataset[]> {
+  if (!festivalDatasetsPromise) {
+    festivalDatasetsPromise = Promise.all(
+      festivalDataFiles.map(async (fileName) =>
+        createFestivalDataset(fileName, await loadRawFestivalData(fileName)),
+      ),
+    )
+      .then((datasets) => {
+        for (const dataset of datasets) {
+          const uniqueVenues = groupFestivalDataByVenue(dataset.events);
+          console.log(`Unique venues (${dataset.fileName}), grouped by venue code:`, uniqueVenues);
+        }
+        const uniqueVenues = groupFestivalDataByVenue(combineFestivalDatasets(datasets));
+        console.log("Unique venues (all files), grouped by venue code:", uniqueVenues);
+        return datasets;
+      })
       .catch((error) => {
-        festivalDataPromise = undefined;
+        festivalDatasetsPromise = undefined;
         throw error;
       });
   }
 
-  return festivalDataPromise;
+  return festivalDatasetsPromise;
+}
+
+/** Existing callers keep the 2025 map data; another configured file can be requested explicitly. */
+export function loadFestivalData(fileName = defaultFestivalDataFile): Promise<FestivalData[]> {
+  return loadFestivalDatasets().then((datasets) => selectFestivalDataset(datasets, fileName).events);
+}
+
+/** Parse each row while retaining the source filename and unmodified raw rows. */
+export function createFestivalDataset(fileName: string, raw: RawFestivalData[]): FestivalDataset {
+  return { fileName, events: raw.map(toFestivalData), raw };
+}
+
+/** Select one configured dataset explicitly, rather than mixing years in existing views. */
+export function selectFestivalDataset(datasets: FestivalDataset[], fileName: string): FestivalDataset {
+  const dataset = datasets.find((item) => item.fileName === fileName);
+  if (!dataset) throw new Error(`Add ${fileName} to festivalDataFiles before loading it.`);
+  return dataset;
+}
+
+/** Combine events in file-list and source-row order for venue exploration only.
+ * No rows are deduplicated; the per-file datasets and every event's raw row remain available.
+ */
+export function combineFestivalDatasets(datasets: FestivalDataset[]): FestivalData[] {
+  return datasets.flatMap((dataset) => dataset.events);
 }
 
 export function loadFestivalDataByFestival() {
@@ -142,6 +199,11 @@ export function groupFestivalData(
       ([festival, events]) => [festival, { festival, events }],
     ),
   );
+}
+
+/** One group per venue code, retaining all events and raw rows. Blank codes share a group. */
+export function groupFestivalDataByVenue(events: FestivalData[]): FestivalVenueGroup[] {
+  return d3.groups(events, (event) => event.venue.code);
 }
 
 /**

@@ -16,6 +16,7 @@
   export let representation: TicketCountryRepresentation | undefined = undefined;
   export let status: "loading" | "ready" | "empty" | "error" = "loading";
   export let error = "";
+  export let showData = true;
 
   let width = 0;
   let height = 0;
@@ -23,17 +24,19 @@
 
   const stripWidth = ticketCountryStripLayout.titleWidth;
 
+  $: visibleRepresentation = showData ? representation : undefined;
   $: countries = createTicketCountryStrip(
     data,
-    representation,
+    visibleRepresentation,
     height,
   );
-  $: continents = createTicketContinentSummaries(countries, representation);
-  $: countrySummaries = createVisitorCountrySummaries(countries, representation);
-  $: scope = status === "loading" ? "Loading visitor data"
-    : status === "error" ? "Visitor data unavailable"
-    : status === "empty" ? "No visitor data available"
-    : "All loaded visitors";
+  $: continents = createTicketContinentSummaries(countries, visibleRepresentation);
+  $: countrySummaries = createVisitorCountrySummaries(countries, visibleRepresentation);
+  $: scope = !showData ? "Visitor data is only available for Tattoo"
+    : status === "loading" ? "Loading Tattoo visitor data"
+    : status === "error" ? "Tattoo visitor data unavailable"
+    : status === "empty" ? "No Tattoo visitor data available"
+    : "Tattoo visitors (2025)";
   
 </script>
 
@@ -53,10 +56,20 @@
   {/if}
 </div>
 
-<CountryStripDetails summaries={continents} countries={countrySummaries} side="right" {scope} />
+<CountryStripDetails
+  summaries={continents}
+  countries={countrySummaries}
+  side="right"
+  {scope}
+  dataMessage={showData ? null : "No visitor data is available for this festival."}
+/>
 
 <p class="visually-hidden">
-  {#if status === "loading"}
+  {#if !showData}
+    Visitor origins are available only for the Royal Edinburgh Military Tattoo.
+    The strip remains visible with neutral country rectangles. No visitor counts
+    or connecting lines are shown for the selected festival.
+  {:else if status === "loading"}
     Loading visitor data.
   {:else if status === "error"}
     Visitor data could not be loaded: {error}

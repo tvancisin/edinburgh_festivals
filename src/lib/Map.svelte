@@ -22,7 +22,7 @@
     FestivalDataGroup,
   } from "./utils/festivalData";
   import { filterFestivalDataWithCoordinates } from "./utils/festivalData";
-  import type { TicketData } from "./utils/ticketData";
+  import { ticketDataFestival, type TicketData } from "./utils/ticketData";
   import {
     aggregateTicketCountryRepresentation,
     createTicketCountryCatalog,
@@ -106,6 +106,8 @@
       ? aggregateTicketCountryRepresentation(ticketData, ticketCountryCatalog)
       : undefined;
   $: countryScope = selectedFestivalData?.festival ?? "All festivals";
+  $: showVisitorData = selectedFestivalData === undefined
+    || selectedFestivalData.festival === ticketDataFestival;
   $: if (eventMarkerLayer && mapEvents) renderEventHexBins(mapEvents);
   onMount(() => {
     map = L.map(mapElement, {
@@ -372,18 +374,21 @@
     class:guide-highlighted={legendStage === "tickets"}
     inert={legendStage !== "hidden"}
   >
-    <TicketCountryConnections
-      data={countryStripData}
-      representation={ticketCountryRepresentation}
-      status={ticketDataStatus}
-      error={ticketDataError}
-      {circleRadius}
-    />
+    {#if showVisitorData}
+      <TicketCountryConnections
+        data={countryStripData}
+        representation={ticketCountryRepresentation}
+        status={ticketDataStatus}
+        error={ticketDataError}
+        {circleRadius}
+      />
+    {/if}
     <TicketCountryStrip
       data={countryStripData}
       representation={ticketCountryRepresentation}
       status={ticketDataStatus}
       error={ticketDataError}
+      showData={showVisitorData}
     />
   </div>
   {#if legendStage !== "hidden"}

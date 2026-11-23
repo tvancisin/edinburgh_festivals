@@ -31,7 +31,10 @@ The descriptions follow the existing counting methods:
   strip describes supplied country associations, without inferring
   nationality or residence. Black line lengths show related event-record
   counts.
-- Visitor line lengths count one visitor per ticket-export row, following the
+- The Visitor Origins strip covers only Tattoo visitors. It appears in the
+  default view and the Tattoo selection; other festival selections keep the
+  heading and neutral strip visible without visitor data or connecting lines.
+  Visitor line lengths count one visitor per ticket-export row, following the
   source definition confirmed by the user on November 23, 2026. Ticket
   quantities are not counted. Events and Visitors use separate line-length scales.
 

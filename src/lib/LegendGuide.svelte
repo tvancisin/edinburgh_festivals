@@ -30,7 +30,7 @@
     tickets: {
       number: 4,
       title: "Visitor origins",
-      description: "Visitor countries, grouped by continent. Each dark segment marks one represented country; longer black lines show more visitors.",
+      description: "Tattoo visitor countries, grouped by continent. Each dark segment marks one represented country; longer black lines show more visitors.",
       nextLabel: "Finish the visualization guide",
     },
   };
