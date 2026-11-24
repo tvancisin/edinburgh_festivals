@@ -85,8 +85,6 @@ export type FestivalDataGroup = {
   events: FestivalData[];
 };
 
-export type FestivalVenueGroup = [venueCode: string, events: FestivalData[]];
-
 export type FestivalDataset = {
   fileName: string;
   events: FestivalData[];
@@ -95,23 +93,22 @@ export type FestivalDataset = {
 
 export type FestivalDataByFestival = Record<string, FestivalDataGroup>;
 
-// Add CSV filenames here to include them in the parallel load and venue logs.
-// Files live in public/data; original download URLs, dates, and versions were not supplied.
+// Local source files; original download URLs, dates, and versions were not supplied.
 export const festivalDataFiles = [
   "2012.csv", "2013.csv", "2014.csv", "2015.csv", "2016.csv",
   "2017.csv", "2018.csv", "2019.csv", "2020.csv", "2021.csv",
   "2022.csv", "2023.csv", "2024.csv", "2025.csv", "2026.csv",
 ];
-export const defaultFestivalDataFile = "2025.csv";
 const parseDate = d3.timeParse("%Y-%m-%d");
 const parseTimestamp = d3.timeParse("%Y-%m-%d %H:%M:%S");
+const formatDate = d3.timeFormat("%Y-%m-%d");
+const formatTimestamp = d3.timeFormat("%Y-%m-%d %H:%M:%S");
 
 const rawFestivalDataPromises = new Map<string, Promise<RawFestivalData[]>>();
 let festivalDatasetsPromise: Promise<FestivalDataset[]> | undefined;
-let festivalDataByFestivalPromise: Promise<FestivalDataByFestival> | undefined;
 
 /** Cache each CSV separately so a failed file can retry without reloading successful files. */
-export function loadRawFestivalData(fileName = defaultFestivalDataFile): Promise<RawFestivalData[]> {
+export function loadRawFestivalData(fileName: string): Promise<RawFestivalData[]> {
   let promise = rawFestivalDataPromises.get(fileName);
   if (!promise) {
     promise = d3
@@ -126,23 +123,21 @@ export function loadRawFestivalData(fileName = defaultFestivalDataFile): Promise
   return promise;
 }
 
-/** Load all configured files concurrently, keeping their rows separate by filename.
- * Log venue-code groups per file and across all files once every load succeeds.
+/** Load every source file, then format and log each dataset in file-list order.
+ * Keep all rows in source order, without grouping, filtering, sorting, or deduplication.
  */
 export function loadFestivalDatasets(): Promise<FestivalDataset[]> {
   if (!festivalDatasetsPromise) {
     festivalDatasetsPromise = Promise.all(
-      festivalDataFiles.map(async (fileName) =>
-        createFestivalDataset(fileName, await loadRawFestivalData(fileName)),
-      ),
+      festivalDataFiles.map(loadRawFestivalData),
     )
-      .then((datasets) => {
-        for (const dataset of datasets) {
-          const uniqueVenues = groupFestivalDataByVenue(dataset.events);
-          console.log(`Unique venues (${dataset.fileName}), grouped by venue code:`, uniqueVenues);
-        }
-        const uniqueVenues = groupFestivalDataByVenue(combineFestivalDatasets(datasets));
-        console.log("Unique venues (all files), grouped by venue code:", uniqueVenues);
+      .then((rawDatasets) => {
+        const datasets = rawDatasets.map((raw, index) =>
+          createFestivalDataset(festivalDataFiles[index], raw),
+        );
+        // for (const dataset of datasets) {
+        //   console.log(`Formatted festival dataset (${dataset.fileName}):`, dataset);
+        // }
         return datasets;
       })
       .catch((error) => {
@@ -154,80 +149,14 @@ export function loadFestivalDatasets(): Promise<FestivalDataset[]> {
   return festivalDatasetsPromise;
 }
 
-/** Existing callers keep the 2025 map data; another configured file can be requested explicitly. */
-export function loadFestivalData(fileName = defaultFestivalDataFile): Promise<FestivalData[]> {
-  return loadFestivalDatasets().then((datasets) => selectFestivalDataset(datasets, fileName).events);
-}
-
 /** Parse each row while retaining the source filename and unmodified raw rows. */
 export function createFestivalDataset(fileName: string, raw: RawFestivalData[]): FestivalDataset {
   return { fileName, events: raw.map(toFestivalData), raw };
 }
 
-/** Select one configured dataset explicitly, rather than mixing years in existing views. */
-export function selectFestivalDataset(datasets: FestivalDataset[], fileName: string): FestivalDataset {
-  const dataset = datasets.find((item) => item.fileName === fileName);
-  if (!dataset) throw new Error(`Add ${fileName} to festivalDataFiles before loading it.`);
-  return dataset;
-}
-
-/** Combine events in file-list and source-row order for venue exploration only.
- * No rows are deduplicated; the per-file datasets and every event's raw row remain available.
- */
-export function combineFestivalDatasets(datasets: FestivalDataset[]): FestivalData[] {
-  return datasets.flatMap((dataset) => dataset.events);
-}
-
-export function loadFestivalDataByFestival() {
-  if (!festivalDataByFestivalPromise) {
-    festivalDataByFestivalPromise = loadFestivalData()
-      .then(groupFestivalData)
-      .catch((error) => {
-        festivalDataByFestivalPromise = undefined;
-        throw error;
-      });
-  }
-
-  return festivalDataByFestivalPromise;
-}
-
-export function groupFestivalData(
-  festivalData: FestivalData[],
-): FestivalDataByFestival {
-  return Object.fromEntries(
-    Array.from(d3.group(festivalData, (event) => event.festival)).map(
-      ([festival, events]) => [festival, { festival, events }],
-    ),
-  );
-}
-
-/** One group per venue code, retaining all events and raw rows. Blank codes share a group. */
-export function groupFestivalDataByVenue(events: FestivalData[]): FestivalVenueGroup[] {
-  return d3.groups(events, (event) => event.venue.code);
-}
-
-/**
- * Flattens festival groups without changing their group or event order.
- */
-export function flattenFestivalDataByFestival(
-  festivalDataByFestival: FestivalDataByFestival,
-): FestivalData[] {
-  return Object.values(festivalDataByFestival).flatMap(
-    (festivalGroup) => festivalGroup.events,
-  );
-}
-
-/**
- * Returns the supplied events with valid venue coordinates. Events without a
- * latitude or longitude remain available in the original data collection.
- */
-export function filterFestivalDataWithCoordinates(
-  festivalData: FestivalData[],
-): FestivalDataWithCoordinates[] {
-  return festivalData.filter(
-    (event): event is FestivalDataWithCoordinates =>
-      event.venue.latitude !== null && event.venue.longitude !== null,
-  );
+/** Check for any event records without changing the datasets. */
+export function hasFestivalEvents(datasets: FestivalDataset[]): boolean {
+  return datasets.some((dataset) => dataset.events.length > 0);
 }
 
 export function toFestivalData(raw: RawFestivalData): FestivalData {
@@ -319,11 +248,13 @@ function parseOptionalNumber(value: string) {
 }
 
 function parseOptionalDate(value: string) {
-  return value ? parseDate(value) : null;
+  const date = parseDate(value);
+  return date && formatDate(date) === value ? date : null;
 }
 
 function parseOptionalTimestamp(value: string) {
-  return value ? parseTimestamp(value) : null;
+  const date = parseTimestamp(value);
+  return date && formatTimestamp(date) === value ? date : null;
 }
 
 function splitList(value: string) {

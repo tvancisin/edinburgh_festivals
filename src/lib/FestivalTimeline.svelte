@@ -1,155 +1,28 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import * as d3 from "d3";
-  import type {
-    FestivalDataByFestival,
-    FestivalDataGroup,
-  } from "./utils/festivalData";
-  import { festivals } from "./utils/festivals.js";
+  import {
+    createFestivalArcs,
+    createMonthTicks,
+    createTodayIndicator,
+    mapToTimelineGap,
+    type FestivalArc,
+  } from "./utils/festivalTimeline";
 
-  export let circleX = 0;
-  export let circleY = 0;
   export let circleRadius = 0;
-  export let festivalData: FestivalDataByFestival | undefined;
   export let selectedFestivalDataName: string | null = null;
 
-  const dispatch = createEventDispatcher<{
-    select: FestivalDataGroup;
-  }>();
+  const dispatch = createEventDispatcher<{ select: string }>();
+  const today = new Date();
+  let width = 0;
+  let height = 0;
 
-  const arcThickness = 12;
-  const arcGap = 5;
-  const mapToTimelineGap = 32;
-  const axisToArcGap = 5;
-  const defaultLabelGap = 5;
-  const topLabelGap = 5;
-  const yearStart = new Date(2025, 0, 1);
-  const yearEnd = new Date(2026, 0, 1);
-  const currentDate = new Date();
-  const todayIndicatorDate = new Date(
-    yearStart.getFullYear(),
-    currentDate.getMonth(),
-    currentDate.getDate(),
-  );
-  const dateAngle = d3
-    .scaleTime()
-    .domain([yearStart, yearEnd])
-    .range([0, Math.PI * 2]);
-  const parseFestivalDate = d3.timeParse("%Y-%m-%d");
-  const formatMonth = d3.timeFormat("%B");
-  const formatToday = d3.timeFormat("%-d %B");
-
-  type Festival = (typeof festivals)[number];
-  type FestivalArc = Festival & {
-    path: string | null;
-    stack: number;
-    labelX: number;
-    labelY: number;
-    labelRotation: number;
-    labelAnchor: "start" | "end";
-  };
-  type MonthTick = {
-    angle: number;
-    label: string;
-    labelX: number;
-    labelY: number;
-    labelRotation: number;
-  };
-  type TodayIndicator = {
-    angle: number;
-    labelX: number;
-    labelY: number;
-    labelRotation: number;
-  };
-
-  let festivalArcs: FestivalArc[] = [];
-  let monthTicks: MonthTick[] = [];
-  let todayIndicator: TodayIndicator;
-
-  $: festivalArcs = createFestivalArcs(circleRadius);
-  $: monthTicks = createMonthTicks(circleRadius);
-  $: todayIndicator = createTodayIndicator(circleRadius);
-
-  function createFestivalArc(
-    festival: Festival,
-    mapRadius: number,
-    stack: number,
-  ): FestivalArc {
-    const startAngle = festivalDateAngle(festival.start);
-    const endAngle = festivalDateAngle(festival.end);
-    const timelineRadius = mapRadius + mapToTimelineGap;
-    const innerRadius =
-      timelineRadius + axisToArcGap + stack * (arcThickness + arcGap);
-    const outerRadius = innerRadius + arcThickness;
-    const labelRadius = innerRadius + arcThickness / 2;
-    const labelAngle = ((endAngle * 180) / Math.PI + 360) % 360;
-    const shouldFlipLabel = labelAngle > 90 && labelAngle < 270;
-    const labelGap =
-      labelAngle >= 270 || labelAngle <= 45 ? topLabelGap : defaultLabelGap;
-
-    return {
-      ...festival,
-      stack,
-      path: d3.arc()({
-        innerRadius,
-        outerRadius,
-        startAngle,
-        endAngle,
-      }),
-      labelX:
-        labelRadius * Math.sin(endAngle) + labelGap * Math.cos(endAngle),
-      labelY:
-        -labelRadius * Math.cos(endAngle) + labelGap * Math.sin(endAngle),
-      labelRotation: shouldFlipLabel ? labelAngle + 180 : labelAngle,
-      labelAnchor: shouldFlipLabel ? "end" : "start",
-    };
-  }
-
-  function festivalDateAngle(date: string) {
-    const parsedDate = parseFestivalDate(date);
-
-    if (!parsedDate) {
-      throw new Error(`Invalid festival date: ${date}`);
-    }
-
-    return dateAngle(parsedDate);
-  }
-
-  function createFestivalArcs(mapRadius: number): FestivalArc[] {
-    const assignedTracks = new Map<Festival, number>();
-
-    return festivals.map((festival) => {
-      const occupiedTracks = new Set(
-        [...assignedTracks]
-          .filter(([previousFestival]) =>
-            festivalsOverlap(previousFestival, festival),
-          )
-          .map(([, track]) => track),
-      );
-      let stack = 0;
-
-      while (occupiedTracks.has(stack)) {
-        stack += 1;
-      }
-
-      assignedTracks.set(festival, stack);
-      return createFestivalArc(festival, mapRadius, stack);
-    });
-  }
-
-  function festivalsOverlap(first: Festival, second: Festival) {
-    return first.start < second.end && second.start < first.end;
-  }
+  $: mapRadius = Math.min(circleRadius, width / 2, height / 2);
+  $: festivalArcs = createFestivalArcs(mapRadius);
+  $: monthTicks = createMonthTicks(mapRadius);
+  $: todayIndicator = createTodayIndicator(mapRadius, today);
 
   function handleFestivalArcClick(festival: FestivalArc) {
-    const festivalGroup = festivalData?.[festival.dataFestival];
-
-    if (!festivalGroup) {
-      console.warn(`No loaded data for ${festival.name}.`);
-      return;
-    }
-
-    dispatch("select", festivalGroup);
+    dispatch("select", festival.dataFestival);
   }
 
   function handleFestivalArcKeydown(event: KeyboardEvent, festival: FestivalArc) {
@@ -158,52 +31,26 @@
       handleFestivalArcClick(festival);
     }
   }
-
-  function createMonthTicks(mapRadius: number): MonthTick[] {
-    const labelRadius = Math.max(
-      0,
-      mapRadius + mapToTimelineGap / 2,
-    );
-
-    return d3.timeMonth.range(yearStart, yearEnd).map((date) => {
-      const angle = dateAngle(date);
-      const angleDegrees = ((angle * 180) / Math.PI + 360) % 360;
-      const shouldFlipLabel = angleDegrees > 90 && angleDegrees < 270;
-
-      return {
-        angle,
-        label: formatMonth(date),
-        labelX: labelRadius * Math.sin(angle),
-        labelY: -labelRadius * Math.cos(angle),
-        labelRotation: shouldFlipLabel ? angleDegrees + 180 : angleDegrees,
-      };
-    });
-  }
-
-  function createTodayIndicator(mapRadius: number): TodayIndicator {
-    const angle = dateAngle(todayIndicatorDate);
-    const labelRadius = mapRadius + mapToTimelineGap + 50;
-    const angleDegrees = ((angle * 180) / Math.PI + 360) % 360;
-    const shouldFlipLabel = angleDegrees > 90 && angleDegrees < 270;
-
-    return {
-      angle,
-      labelX: labelRadius * Math.sin(angle),
-      labelY: -labelRadius * Math.cos(angle),
-      labelRotation: shouldFlipLabel ? angleDegrees + 180 : angleDegrees,
-    };
-  }
 </script>
 
-<g transform={`translate(${circleX} ${circleY})`}>
-  <circle class="timeline-axis" r={circleRadius + mapToTimelineGap} />
+<svg
+  class="festival-timeline"
+  role="group"
+  aria-label="Fixed festival calendar and festival filters"
+  {width}
+  {height}
+  bind:clientWidth={width}
+  bind:clientHeight={height}
+>
+<g transform={`translate(${width / 2} ${height / 2})`}>
+  <circle class="timeline-axis" r={mapRadius + mapToTimelineGap} />
   {#each monthTicks as tick}
     <line
       class="month-tick"
       x1="0"
       x2="0"
-      y1={-(circleRadius + mapToTimelineGap)}
-      y2={-(circleRadius + mapToTimelineGap - 7)}
+      y1={-(mapRadius + mapToTimelineGap)}
+      y2={-(mapRadius + mapToTimelineGap - 7)}
       transform={`rotate(${(tick.angle * 180) / Math.PI})`}
     />
     <text
@@ -219,13 +66,13 @@
   <g
     class="today-indicator"
     role="img"
-    aria-label={`Today: ${formatToday(todayIndicatorDate)}`}
+    aria-label={`Today: ${todayIndicator.label}`}
   >
     <line
       x1="0"
       x2="0"
-      y1={-(circleRadius + mapToTimelineGap)}
-      y2={-(circleRadius + mapToTimelineGap + 40)}
+      y1={-(mapRadius + mapToTimelineGap)}
+      y2={-(mapRadius + mapToTimelineGap + 40)}
       transform={`rotate(${(todayIndicator.angle * 180) / Math.PI})`}
     />
     <text
@@ -260,8 +107,16 @@
     >
   {/each}
 </g>
+</svg>
 
 <style>
+  .festival-timeline {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
   .timeline-axis,
   .month-tick {
     stroke: #777777;

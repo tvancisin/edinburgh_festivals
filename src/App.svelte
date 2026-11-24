@@ -1,7 +1,14 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { loadFestivalDataByFestival, loadFestivalDatasets } from "./lib/utils/festivalData";
-  import { createVenueActivityData, type VenueActivityData } from "./lib/utils/venueActivity";
+  import {
+    hasFestivalEvents,
+    loadFestivalDatasets,
+    type FestivalDataset,
+  } from "./lib/utils/festivalData";
+  import {
+    createVenueActivityData,
+    type VenueActivityData,
+  } from "./lib/utils/venueActivity";
   import {
     loadCountryStripData,
     type CountryStripData,
@@ -17,23 +24,6 @@
     calculateFestivalHistoryVerticalLayout,
   } from "./lib/utils/festivalHistory";
 
-  // todo
-  // performers geo
-  // customers geo
-
-  // FEST 2025 |  API(geo) | TICKET (geo)
-  // Hogmanay  |   x(-)    |   -
-  // Science   |   x(-)    |   -
-  // Children  |   x(x)    |   -
-  // Jazz      |   x(-)    |   -
-  // Fringe    |   x(x)    |   x
-  // Inter.    |   x(-)    |   x(x postcode)
-  // Tatoo     |   x(-)    |   x(x country)
-  // Art       |   x(-)    |   -
-  // Book      |   x(-)    |   x
-  // Film      |   x(x)    |   -
-  // Story     |   x(-)    |   -
-
   type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
   type TicketDataStatus = FestivalDataStatus;
 
@@ -44,7 +34,8 @@
   let venueDataStatus: FestivalDataStatus = "loading";
   let venueDataError = "";
   let legendStage: LegendStage = "hidden";
-  let festivalData: Awaited<ReturnType<typeof loadFestivalDataByFestival>>;
+  // Base collection of formatted API festivals data
+  let baseFestivalDatasets: FestivalDataset[] | undefined;
   let festivalDataStatus: FestivalDataStatus = "loading";
   let festivalDataError = "";
   let countryStripData: CountryStripData | undefined;
@@ -64,10 +55,60 @@
 
   onMount(() => {
     void fetchFestivalData();
-    void fetchCountryStripData();
     void fetchTicketData();
+    void fetchCountryStripData();
     void waitForDocumentFonts();
   });
+
+  // get festivals API datasets
+  async function fetchFestivalData() {
+    try {
+      festivalDataStatus = "loading";
+      festivalDataError = "";
+      baseFestivalDatasets = await loadFestivalDatasets();
+      festivalDataStatus = hasFestivalEvents(baseFestivalDatasets)
+        ? "ready"
+        : "empty";
+    } catch (error) {
+      festivalDataStatus = "error";
+      festivalDataError =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+    } finally {
+      isFestivalDataLoaded = true;
+    }
+  }
+
+  $: console.log(baseFestivalDatasets);
+
+  async function waitForDocumentFonts() {
+    if ("fonts" in document) {
+      await document.fonts.ready;
+    }
+
+    areFontsLoaded = true;
+  }
+
+  async function fetchCountryStripData() {
+    try {
+      countryStripData = await loadCountryStripData();
+    } catch (error) {
+      console.error("Unable to load country-strip data.", error);
+    }
+  }
+
+  async function fetchTicketData() {
+    try {
+      ticketDataStatus = "loading";
+      ticketData = await loadTicketData();
+      ticketDataStatus = ticketData.length ? "ready" : "empty";
+    } catch (error) {
+      ticketDataStatus = "error";
+      ticketDataError =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+    } finally {
+      isTicketDataLoaded = true;
+    }
+  }
 
   $: loadingProgress =
     (isFestivalDataLoaded ? 25 : 0) +
@@ -83,7 +124,8 @@
   $: introHorizontalPadding = Math.min(32, Math.max(16, mainWidth * 0.04));
   $: introLeftOffset = Math.max(
     0,
-    calculateFestivalHistoryHorizontalMargin(mainWidth) - introHorizontalPadding,
+    calculateFestivalHistoryHorizontalMargin(mainWidth) -
+      introHorizontalPadding,
   );
   $: introWidth = Math.max(0, mainWidth - introLeftOffset);
   $: introBottomOffset = Math.max(
@@ -117,63 +159,19 @@
     venueDataStatus = "loading";
     venueDataError = "";
     try {
-      venueActivityData = createVenueActivityData(await loadFestivalDatasets());
+      baseFestivalDatasets ??= await loadFestivalDatasets();
+      venueActivityData = createVenueActivityData(baseFestivalDatasets);
       venueDataStatus = venueActivityData.venues.length > 0 ? "ready" : "empty";
     } catch (error) {
       venueDataStatus = "error";
-      venueDataError = error instanceof Error ? error.message : "An unknown error occurred.";
-    }
-  }
-
-  async function fetchFestivalData() {
-    try {
-      festivalDataStatus = "loading";
-      festivalData = await loadFestivalDataByFestival();
-      festivalDataStatus =
-        Object.keys(festivalData).length > 0 ? "ready" : "empty";
-    } catch (error) {
-      festivalDataStatus = "error";
-      festivalDataError =
+      venueDataError =
         error instanceof Error ? error.message : "An unknown error occurred.";
-    } finally {
-      isFestivalDataLoaded = true;
-    }
-  }
-
-  async function waitForDocumentFonts() {
-    if ("fonts" in document) {
-      await document.fonts.ready;
-    }
-
-    areFontsLoaded = true;
-  }
-
-  async function fetchCountryStripData() {
-    try {
-      countryStripData = await loadCountryStripData();
-    } catch (error) {
-      console.error("Unable to load country-strip data.", error);
-    }
-  }
-
-  async function fetchTicketData() {
-    try {
-      ticketDataStatus = "loading";
-      ticketData = await loadTicketData();
-      ticketDataStatus = ticketData.length ? "ready" : "empty";
-    } catch (error) {
-      ticketDataStatus = "error";
-      ticketDataError =
-        error instanceof Error ? error.message : "An unknown error occurred.";
-    } finally {
-      isTicketDataLoaded = true;
     }
   }
 
   function handleMapLoaded() {
     isMapLoaded = true;
   }
-
 </script>
 
 <svelte:head>
@@ -215,11 +213,7 @@
 
 {#if !showExplorer}
   <nav aria-label="Exploration views" inert={showVenueExplorer}>
-    <a
-      class="logo"
-      href={basePath}
-      aria-label="Edinburgh Festivals home"
-    >
+    <a class="logo" href={basePath} aria-label="Edinburgh Festivals home">
       <img
         src={`${basePath}/img/efi_dlm_logo_black.svg`}
         alt="Edinburgh Futures Institute logo"
@@ -230,19 +224,19 @@
       type="button"
       aria-haspopup="dialog"
       bind:this={venueExplorerButton}
-      on:click={openVenueExplorer}
-    >Venues</button>
+      on:click={openVenueExplorer}>Venues</button
+    >
   </nav>
 {/if}
 
 <p class="data-status" aria-live="polite">
   {#if festivalDataStatus === "loading"}
-    Loading 2025 festival data.
+    Loading festival datasets from 2012 through 2026.
   {:else if festivalDataStatus === "ready"}
-    {Object.keys(festivalData ?? {}).length.toLocaleString()} 2025 festival groups
-    loaded.
+    {baseFestivalDatasets?.length ?? 0} festival datasets from 2012 through 2026
+    loaded and formatted.
   {:else if festivalDataStatus === "empty"}
-    No 2025 festival data is available.
+    No festival event records are available in the 2012 through 2026 datasets.
   {:else}
     Festival data could not be loaded: {festivalDataError}
   {/if}
@@ -261,13 +255,16 @@
     aria-hidden={!showExplorer}
   >
     <Map
-      {festivalData}
+      {baseFestivalDatasets}
+      {festivalDataStatus}
+      {festivalDataError}
       {countryStripData}
       {ticketData}
-      ticketDataStatus={ticketDataStatus}
-      ticketDataError={ticketDataError}
+      {ticketDataStatus}
+      {ticketDataError}
       {legendStage}
       on:ready={handleMapLoaded}
+      on:retryFestivalData={fetchFestivalData}
       on:legendNext={() => (legendStage = nextLegendStage(legendStage))}
       on:legendDismiss={() => (legendStage = "hidden")}
     />

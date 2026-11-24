@@ -18,7 +18,7 @@
     timeline: {
       number: 2,
       title: "Festival calendar",
-      description: "A year of Edinburgh festivals in 2025. Each arc marks when a festival takes place.",
+      description: "A fixed festival calendar. Each arc marks configured month and day dates and filters events by festival. The calendar stays the same when you change the event year.",
       nextLabel: "Show event origins: step 3 of 4",
     },
     events: {

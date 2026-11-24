@@ -4,7 +4,11 @@ Updated November 23, 2026. The view loads all 15 local files from
 public/data/2012.csv through public/data/2026.csv using the cached Promise.all
 loader in festivalData.ts. Original download URLs, download dates, and export
 versions were not supplied. Filenames, raw rows, and parsed records are retained.
-Failed loads can retry. The main festival map continues to use 2025.
+Failed loads can retry. As of November 24, 2026, the festival-data startup step
+loads, formats, and logs the base datasets, then supplies all years to the main
+map. Its year and festival selections are derived separately from that base.
+Venue grouping still runs when the venue explorer opens, using all files
+independently of the map's filters. See [festival-data.md](festival-data.md).
 
 ## Grouping method: combine existing columns
 

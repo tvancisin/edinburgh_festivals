@@ -440,9 +440,8 @@ test("2012–2026 CSV integration retains all rows, only merges original code gr
   const source = stripTypeScriptTypes(await readFile(new URL("../src/lib/utils/festivalData.ts", import.meta.url), "utf8"))
     .replaceAll("import.meta.env.BASE_URL", JSON.stringify("/edinburgh_festivals/"))
     .replace('from "d3";', `from ${JSON.stringify(import.meta.resolve("d3"))};`);
-  const { createFestivalDataset, festivalDataFiles, defaultFestivalDataFile } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+  const { createFestivalDataset, festivalDataFiles } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
   assert.deepEqual(festivalDataFiles, venueActivityFiles);
-  assert.equal(defaultFestivalDataFile, "2025.csv");
   const sources = await Promise.all(venueActivityFiles.map(async (file) =>
     createFestivalDataset(file, d3.csvParse(await readFile(new URL(`../public/data/${file}`, import.meta.url), "utf8"))),
   ));

@@ -18,10 +18,19 @@
   import { filterEventRecordsByCountry } from "./utils/eventCountryFilter";
   import FestivalTimeline from "./FestivalTimeline.svelte";
   import type {
-    FestivalDataByFestival,
-    FestivalDataGroup,
+    FestivalData,
+    FestivalDataset,
   } from "./utils/festivalData";
-  import { filterFestivalDataWithCoordinates } from "./utils/festivalData";
+  import {
+    combineFestivalMapDatasets,
+    describeFestivalMapScope,
+    filterFestivalDataWithCoordinates,
+    groupFestivalMapEvents,
+    listFestivalMapYears,
+    selectFestivalMapEvents,
+    selectFestivalMapYear,
+    type FestivalYearSelection,
+  } from "./utils/festivalMapData";
   import { ticketDataFestival, type TicketData } from "./utils/ticketData";
   import {
     aggregateTicketCountryRepresentation,
@@ -30,7 +39,6 @@
   import {
     aggregateCountryRepresentation,
     createCountryCatalog,
-    selectFestivalEvents,
   } from "./utils/festivalCountries";
   import {
     addHexagonalBinOpacities,
@@ -42,8 +50,11 @@
     formatApproxCameraAltitude,
   } from "./utils/mapAltitude";
   import { festivals } from "./utils/festivals.js";
+  import { formatFestivalCalendarDate } from "./utils/festivalTimeline";
 
-  export let festivalData: FestivalDataByFestival | undefined;
+  export let baseFestivalDatasets: FestivalDataset[] | undefined;
+  export let festivalDataStatus: "loading" | "ready" | "empty" | "error" = "loading";
+  export let festivalDataError = "";
   export let countryStripData: CountryStripData | undefined;
   export let ticketData: TicketData[] | undefined;
   export let ticketDataStatus: "loading" | "ready" | "empty" | "error" =
@@ -53,6 +64,7 @@
 
   const dispatch = createEventDispatcher<{
     ready: void;
+    retryFestivalData: void;
     legendNext: void;
     legendDismiss: void;
   }>();
@@ -70,11 +82,12 @@
   let circleX = 0;
   let circleY = 0;
   let circleRadius = 0;
-  let selectedFestivalData: FestivalDataGroup | undefined;
+  let selectedYear: FestivalYearSelection = "all";
+  let selectedFestivalName: string | null = null;
   let mapPreview: StripDetail | null = null;
   let eventMarkerLayer: L.LayerGroup | undefined;
   let eventMarkerRenderer: L.Canvas | undefined;
-  let displayedEvents: FestivalDataGroup["events"] | undefined;
+  let displayedEvents: FestivalData[] | undefined;
   let eventLocationCount = 0;
   let cameraAltitude: number | null = null;
   let isLegendVisible = true;
@@ -85,7 +98,13 @@
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
-  $: activeEvents = selectFestivalEvents(festivalData, selectedFestivalData);
+  $: allEvents = baseFestivalDatasets
+    ? combineFestivalMapDatasets(baseFestivalDatasets)
+    : undefined;
+  $: availableYears = allEvents ? listFestivalMapYears(allEvents) : [];
+  $: yearEvents = allEvents ? selectFestivalMapYear(allEvents, selectedYear) : undefined;
+  $: festivalGroups = yearEvents ? groupFestivalMapEvents(yearEvents) : undefined;
+  $: activeEvents = selectFestivalMapEvents(yearEvents, festivalGroups, selectedFestivalName);
   $: countryCatalog = countryStripData
     ? createCountryCatalog(countryStripData)
     : undefined;
@@ -105,9 +124,9 @@
     ticketData && ticketCountryCatalog
       ? aggregateTicketCountryRepresentation(ticketData, ticketCountryCatalog)
       : undefined;
-  $: countryScope = selectedFestivalData?.festival ?? "All festivals";
-  $: showVisitorData = selectedFestivalData === undefined
-    || selectedFestivalData.festival === ticketDataFestival;
+  $: countryScope = describeFestivalMapScope(selectedFestivalName, selectedYear);
+  $: showVisitorData = selectedFestivalName === null
+    || selectedFestivalName === ticketDataFestival;
   $: if (eventMarkerLayer && mapEvents) renderEventHexBins(mapEvents);
   onMount(() => {
     map = L.map(mapElement, {
@@ -147,12 +166,12 @@
     };
   });
 
-  function handleFestivalSelect(event: CustomEvent<FestivalDataGroup>) {
-    selectedFestivalData = event.detail;
+  function handleFestivalSelect(event: CustomEvent<string>) {
+    selectedFestivalName = event.detail;
   }
 
   function resetFestivalSelection() {
-    selectedFestivalData = undefined;
+    selectedFestivalName = null;
   }
 
   async function dismissLegendGuide() {
@@ -161,7 +180,7 @@
     mapElement.focus({ preventScroll: true });
   }
 
-  function renderEventHexBins(events: FestivalDataGroup["events"]) {
+  function renderEventHexBins(events: FestivalData[]) {
     const eventsWithCoordinates = filterFestivalDataWithCoordinates(events);
 
     eventLocationCount = eventsWithCoordinates.length;
@@ -252,15 +271,46 @@
     An interactive map of Edinburgh using OpenStreetMap base data is visible
     through a circular window. Hexagons group festival venue locations, and
     their opacity indicates the number of source event records in each area.
-    Arcs around that window show each festival's 2025 date range. Use your
+    Arcs around that window show fixed festival calendar dates, independent of
+    the event-year filter. Use your
     keyboard, mouse, trackpad, or touch screen to navigate the map.
   </p>
-  {#if festivalData}
+  <div class="map-filters" inert={legendStage !== "hidden"}>
+    <select
+      id="festival-map-year"
+      bind:value={selectedYear}
+      disabled={festivalDataStatus === "loading" || festivalDataStatus === "error"}
+      aria-describedby="festival-year-note"
+    >
+      <option value="all">All years</option>
+      {#each availableYears as year}
+        <option value={year}>{year}</option>
+      {/each}
+    </select>
+    <p id="festival-year-note" class="visually-hidden">
+      Filters event locations and event origins. The fixed festival calendar
+      and 2025 visitor data remain independent of this filter.
+      All years includes records with an unknown year.
+    </p>
+    <p class="map-data-status" role="status">
+      {#if festivalDataStatus === "loading"}
+        Loading festival events.
+      {:else if festivalDataStatus === "error"}
+        Festival events could not be loaded: {festivalDataError}
+      {:else if activeEvents?.length === 0}
+        No event records for {countryScope}.
+      {:else if mapEvents && eventLocationCount === 0}
+        No event locations for this selection.
+      {/if}
+    </p>
+    {#if festivalDataStatus === "error"}
+      <button type="button" on:click={() => dispatch("retryFestivalData")}>Retry event loading</button>
+    {/if}
+  </div>
+  {#if allEvents}
     <p class="visually-hidden" aria-live="polite">
       {eventLocationCount} source event records grouped into hexagons
-      {selectedFestivalData
-        ? `for ${selectedFestivalData.festival}`
-        : "across all festivals"}{mapPreview?.kind === "continent"
+      for {countryScope}{mapPreview?.kind === "continent"
         ? `, associated with countries in ${mapPreview.summary.continent}`
         : mapPreview?.kind === "country"
           ? `, associated with ${mapPreview.summary.countryName}`
@@ -272,9 +322,9 @@
       {/if}
     </p>
   {/if}
-  <ul class="visually-hidden" aria-label="Festival date ranges from 2025">
+  <ul class="visually-hidden" aria-label="Fixed festival calendar dates">
     {#each festivals as festival}
-      <li>{festival.name}: {festival.start} to {festival.end}</li>
+      <li>{festival.name}: {formatFestivalCalendarDate(festival.start)} to {formatFestivalCalendarDate(festival.end)}</li>
     {/each}
   </ul>
   <div
@@ -288,7 +338,7 @@
     bind:clientWidth={width}
     bind:clientHeight={height}
   ></div>
-  {#if selectedFestivalData}
+  {#if selectedFestivalName !== null}
     <button
       class="selection-reset"
       type="button"
@@ -335,21 +385,11 @@
     class:guide-highlighted={legendStage === "timeline"}
     inert={legendStage !== "hidden"}
   >
-    <svg
-      role="group"
-      aria-label="Radial timeline and festival arcs"
-      {width}
-      {height}
-    >
-      <FestivalTimeline
-        {circleX}
-        {circleY}
-        circleRadius={Math.max(0, circleRadius - mapCircleTimelineOffset)}
-        {festivalData}
-        selectedFestivalDataName={selectedFestivalData?.festival ?? null}
-        on:select={handleFestivalSelect}
-      />
-    </svg>
+    <FestivalTimeline
+      circleRadius={Math.max(0, circleRadius - mapCircleTimelineOffset)}
+      selectedFestivalDataName={selectedFestivalName}
+      on:select={handleFestivalSelect}
+    />
   </div>
   <div
     class="country-layer"
@@ -413,6 +453,47 @@
 
   .map {
     position: relative;
+  }
+
+  .map-filters {
+    position: absolute;
+    z-index: 3;
+    top: 0.75rem;
+    left: 4rem;
+    width: min(16rem, calc(100% - 8rem));
+    padding: 0.5rem;
+    border: 1px solid #777777;
+    border-radius: 0.25rem;
+    background: #f8f7f4;
+  }
+
+  .map-filters label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .map-filters select,
+  .map-filters button {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.375rem;
+    border: 1px solid #777777;
+    border-radius: 0.125rem;
+    background: #ffffff;
+    color: #252525;
+    font-size: 0.875rem;
+  }
+
+  .map-data-status {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .map-data-status:empty {
+    display: none;
   }
 
   .map-canvas {

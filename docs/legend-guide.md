@@ -1,7 +1,7 @@
 # Visualization guide
 
-Updated November 23, 2026. The guide introduces four areas in order: the
-Edinburgh venue map, the 2025 festival timeline and arcs, the left Event Origins
+Updated November 24, 2026. The guide introduces four areas in order: the
+Edinburgh venue map, the fixed festival calendar and arcs, the left Event Origins
 strip and its lines, and the right Visitor Origins strip and its lines. Only the
 current area is shown above a white overlay with 0.7 opacity. Finishing the
 guide removes the overlay and restores the visualization controls.
@@ -25,7 +25,9 @@ The descriptions follow the existing counting methods:
 - Map hexagons group source event records at venue coordinates. Darker
   hexagons indicate more event records in an area, rather than a count of
   distinct venues. The opacity scale is defined in `hexBins.ts`.
-- Each festival arc marks a festival's date range in the 2025 calendar.
+- Each festival arc marks its configured month/day range on a fixed calendar.
+  Calendar geometry is independent of the event-year filter. Arc selections
+  filter the current event-year selection by festival; All years is the default.
 - Each dark country segment identifies one country represented in the
   corresponding dataset. Segments are grouped by continent. The Events
   strip describes supplied country associations, without inferring

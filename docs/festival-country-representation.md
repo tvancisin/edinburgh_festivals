@@ -1,5 +1,18 @@
 # Festival country representation
 
+## All-year map data and year selection
+
+Updated November 24, 2026. The map receives the complete formatted base
+collection from `2012.csv` through `2026.csv`, documented in
+[festival-data.md](festival-data.md). All years is the default. The Event year
+filter selects the formatted source Year before festival selection, country
+aggregation, and country/continent previews. Unknown-year records remain in
+All years; none are assigned to a year using a filename or date. Repeated
+source rows are retained and counted individually. Country summaries and text
+alternatives include the active event-year scope. Existing country-matching
+rules, counting rules, and fixed opacity bands remain in use. The separate
+Tattoo visitor dataset retains its 2025 scope.
+
 ## Continent map previews
 
 Added November 23, 2026. Hovering or focusing a continent in the Events strip
