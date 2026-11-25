@@ -19,10 +19,12 @@
   import { nextLegendStage, type LegendStage } from "./lib/utils/legendGuide";
   import FestivalHistory from "./lib/FestivalHistory.svelte";
   import VenueExplorer from "./lib/VenueExplorer.svelte";
+  import type { HexBinVenue } from "./lib/utils/hexBinPopup";
   import { festivals } from "./lib/utils/festivals.js";
   import {
     calculateFestivalHistoryHorizontalMargin,
     calculateFestivalHistoryVerticalLayout,
+    festivalHistorySpacing,
   } from "./lib/utils/festivalHistory";
 
   type FestivalDataStatus = "loading" | "ready" | "empty" | "error";
@@ -30,7 +32,9 @@
 
   let showExplorer = false;
   let showVenueExplorer = false;
-  let venueExplorerButton: HTMLButtonElement;
+  let venueExplorerButton: HTMLButtonElement | undefined;
+  let venueExplorerReturnTarget: HTMLElement | null = null;
+  let selectedVenueContext: HexBinVenue | null = null;
   let venueActivityData: VenueActivityData | undefined;
   let venueDataStatus: FestivalDataStatus = "loading";
   let venueDataError = "";
@@ -53,6 +57,9 @@
   let loadingProgress = 0;
   let mainHeight = 0;
   let mainWidth = 0;
+  let logoElement: HTMLAnchorElement | undefined;
+  let logoHeight = 0;
+  let historyHeight = 0;
   const basePath = import.meta.env.BASE_URL;
 
   onMount(() => {
@@ -120,9 +127,14 @@
   $: isInitialScreenReady =
     isFestivalDataLoaded && isTicketDataLoaded && areFontsLoaded && isMapLoaded;
   $: historyVerticalLayout = calculateFestivalHistoryVerticalLayout(
-    mainHeight,
+    historyHeight,
     festivals.length,
+    mainWidth,
   );
+  $: historyTopInset = mainWidth > 0 && logoElement
+    ? Math.min(mainHeight, logoElement.offsetTop + logoHeight + festivalHistorySpacing.logoGap)
+    : 0;
+  $: introScale = Math.min(historyVerticalLayout.elementScale, mainWidth / 1280);
   $: introHorizontalPadding = Math.min(32, Math.max(16, mainWidth * 0.04));
   $: introLeftOffset = Math.max(
     0,
@@ -132,7 +144,7 @@
   $: introWidth = Math.max(0, mainWidth - introLeftOffset);
   $: introBottomOffset = Math.max(
     0,
-    mainHeight -
+    historyHeight -
       (historyVerticalLayout.timelineGroupStart +
         historyVerticalLayout.timelineGroupHeight),
   );
@@ -150,10 +162,17 @@
   async function closeVenueExplorer() {
     showVenueExplorer = false;
     await tick();
-    venueExplorerButton.focus({ preventScroll: true });
+    const returnTarget = venueExplorerReturnTarget?.isConnected
+      ? venueExplorerReturnTarget
+      : venueExplorerButton?.isConnected
+        ? venueExplorerButton
+        : document.getElementById("festival-map-year");
+    returnTarget?.focus({ preventScroll: true });
   }
 
-  function openVenueExplorer() {
+  function openVenueExplorer(trigger: HTMLElement, venue: HexBinVenue | null = null) {
+    venueExplorerReturnTarget = trigger;
+    selectedVenueContext = venue;
     showVenueExplorer = true;
     if (!venueActivityData) void fetchVenueActivity();
   }
@@ -222,19 +241,25 @@
 
 {#if !showExplorer}
   <nav aria-label="Exploration views" inert={isInitialScreenVisible || showVenueExplorer}>
-    <a class="logo" href={basePath} aria-label="Edinburgh Festivals home">
+    <a
+      class="logo"
+      href={basePath}
+      aria-label="Edinburgh Festivals home"
+      bind:this={logoElement}
+      bind:clientHeight={logoHeight}
+    >
       <img
         src={`${basePath}/img/efi_dlm_logo_black.svg`}
         alt="Edinburgh Futures Institute logo"
       />
     </a>
-    <button
+    <!-- <button
       class="venues-button"
       type="button"
       aria-haspopup="dialog"
       bind:this={venueExplorerButton}
-      on:click={openVenueExplorer}>Venues</button
-    >
+      on:click={() => openVenueExplorer(venueExplorerButton)}>Venues</button
+    > -->
   </nav>
 {/if}
 
@@ -273,29 +298,35 @@
       {ticketDataError}
       {legendStage}
       on:loadStateChange={handleMapLoadStateChange}
+      on:openVenueExplorer={(event) => openVenueExplorer(event.detail.trigger, event.detail.venue)}
       on:retryFestivalData={fetchFestivalData}
       on:legendNext={() => (legendStage = nextLegendStage(legendStage))}
       on:legendDismiss={() => (legendStage = "hidden")}
     />
   </div>
   {#if !showExplorer}
-    <div class="history-shell">
-      <FestivalHistory />
-    </div>
-  {/if}
-  {#if !showExplorer}
-    <section
-      class="intro"
-      aria-labelledby="page-title"
-      style:bottom={`${introBottomOffset}px`}
-      style:left={`${introLeftOffset}px`}
-      style:width={`${introWidth}px`}
+    <div
+      class="history-shell"
+      role="region"
+      aria-label="Festival history and introduction"
+      style:top={`${historyTopInset}px`}
+      bind:clientHeight={historyHeight}
     >
-      <h1 id="page-title">Edinburgh Festivals</h1>
-      <button class="explore-button" type="button" on:click={showDataExplorer}>
-        Explore the data
-      </button>
-    </section>
+      <FestivalHistory />
+      <section
+        class="intro"
+        aria-labelledby="page-title"
+        style:--intro-scale={introScale}
+        style:bottom={`${introBottomOffset}px`}
+        style:left={`${introLeftOffset}px`}
+        style:width={`${introWidth}px`}
+      >
+        <h1 id="page-title">Edinburgh Festivals</h1>
+        <button class="explore-button" type="button" on:click={showDataExplorer}>
+          Explore the data
+        </button>
+      </section>
+    </div>
   {/if}
 </main>
 
@@ -304,6 +335,9 @@
     data={venueActivityData}
     status={venueDataStatus}
     error={venueDataError}
+    backLabel={showExplorer ? "Back to map" : "Back to intro"}
+    selectedVenue={selectedVenueContext}
+    on:reset={() => (selectedVenueContext = null)}
     on:close={closeVenueExplorer}
     on:retry={fetchVenueActivity}
   />
@@ -335,6 +369,7 @@
   .history-shell {
     position: absolute;
     inset: 0;
+    overflow: hidden;
   }
 
   .initial-screen {
@@ -443,7 +478,7 @@
     z-index: 1;
     max-width: 48rem;
     width: 100%;
-    padding: clamp(4rem, 12vw, 9rem) clamp(1rem, 4vw, 2rem) 0;
+    padding: 0 clamp(1rem, 4vw, 2rem);
     bottom: 0;
     left: 0;
   }
@@ -463,7 +498,7 @@
   h1 {
     max-width: 10ch;
     margin: 0;
-    font-size: clamp(2.5rem, 8vw, 5.5rem);
+    font-size: calc(5.5rem * var(--intro-scale));
     font-weight: 650;
     letter-spacing: -0.05em;
     line-height: 0.9;
@@ -471,13 +506,15 @@
 
   .explore-button {
     text-transform: uppercase;
-    margin-top: 2rem;
-    padding: 0.75rem 1.125rem;
+    margin-top: calc(2rem * var(--intro-scale));
+    min-height: 2.75rem;
+    padding: calc(0.75rem * var(--intro-scale)) calc(1.125rem * var(--intro-scale));
     border: 0;
     border-radius: 0.25rem;
     color: #fff;
     background: #006b63;
     font-weight: 700;
+    font-size: max(0.75rem, calc(1rem * var(--intro-scale)));
     cursor: pointer;
   }
 

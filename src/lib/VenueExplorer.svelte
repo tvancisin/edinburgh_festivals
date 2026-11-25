@@ -3,20 +3,29 @@
   import VenueActivityChart from "./VenueActivityChart.svelte";
   import { venueActivityYearRangeLabel, type VenueActivityData } from "./utils/venueActivity";
   import { filterVenueActivityByConnections } from "./utils/venueActivityFilters";
+  import type { HexBinVenue } from "./utils/hexBinPopup";
+  import { describeVenueActivityContext, findVenueActivityContext } from "./utils/venueActivityContext";
 
   export let data: VenueActivityData | undefined = undefined;
   export let status: "loading" | "ready" | "empty" | "error" = "loading";
   export let error = "";
+  export let backLabel = "Back to intro";
+  export let selectedVenue: HexBinVenue | null = null;
 
-  const dispatch = createEventDispatcher<{ close: void; retry: void }>();
+  const dispatch = createEventDispatcher<{ close: void; retry: void; reset: void }>();
   let width = 0;
   let height = 0;
   let backButton: HTMLButtonElement;
   let dialog: HTMLDivElement;
   let minimumYears = 1;
-  let continuousOnly = false;
+  let chartResetVersion = 0;
 
-  $: filtered = data ? filterVenueActivityByConnections(data, minimumYears, continuousOnly) : undefined;
+  $: filtered = data ? filterVenueActivityByConnections(data, minimumYears) : undefined;
+  $: highlightedVenues = findVenueActivityContext(data, selectedVenue);
+  $: selectionDescription = describeVenueActivityContext(selectedVenue, highlightedVenues, filtered?.data);
+  $: sliderThumbPosition = filtered && filtered.maximumYears > 1
+    ? (minimumYears - 1) / (filtered.maximumYears - 1) * 100
+    : 50;
 
   function focusBackButton(button: HTMLButtonElement) {
     button.focus({ preventScroll: true });
@@ -46,6 +55,13 @@
     dispatch("retry");
     backButton.focus({ preventScroll: true });
   }
+
+  function resetView() {
+    minimumYears = 1;
+    selectedVenue = null;
+    chartResetVersion += 1;
+    dispatch("reset");
+  }
 </script>
 
 <div
@@ -65,34 +81,36 @@
     {#if status === "ready" && data && filtered}
       <div class="venue-filters">
         <div class="year-filter">
-          <label for="venue-minimum-years">
-            Minimum {continuousOnly ? "consecutive" : "recorded"} years:
-            <output for="venue-minimum-years">{minimumYears}</output>
-          </label>
-          <input
-            id="venue-minimum-years" type="range" min="1" max={filtered.maximumYears} step="1"
-            bind:value={minimumYears}
-            aria-valuetext={filtered.sliderValueText}
-            aria-describedby="venue-filter-note"
-          />
-          <div class="range-labels" aria-hidden="true"><span>1</span><span>{filtered.maximumYears}</span></div>
+          <label for="venue-minimum-years" class="visually-hidden">Minimum recorded years</label>
+          <div class="range-control">
+            <div class="range-labels">
+              <span class="range-min" class:is-current={minimumYears === 1} aria-hidden="true">1</span>
+              <output for="venue-minimum-years" style:left={`${sliderThumbPosition}%`}>{minimumYears}</output>
+              <span class="range-max" class:is-current={minimumYears === filtered.maximumYears} aria-hidden="true">{filtered.maximumYears}</span>
+            </div>
+            <input
+              id="venue-minimum-years" type="range" min="1" max={filtered.maximumYears} step="1"
+              title="Minimum recorded years"
+              bind:value={minimumYears}
+              aria-valuetext={filtered.sliderValueText}
+              aria-describedby="venue-filter-note"
+            />
+          </div>
         </div>
-        <label class="continuity-filter">
-          <input type="checkbox" bind:checked={continuousOnly} aria-describedby="venue-filter-note" />
-          Continuous years only
-        </label>
         <p id="venue-filter-note" class="visually-hidden">
-          2020 is shown but not counted. 2019 and 2021 count as consecutive.
-          Gaps are allowed when the checkbox is unchecked.
+          2020 is shown but not counted. Gaps between recorded years are allowed.
         </p>
       </div>
     {/if}
-    <button
-      type="button"
-      bind:this={backButton}
-      use:focusBackButton
-      on:click={() => dispatch("close")}
-    >Back to intro</button>
+    <div class="venue-actions">
+      <button type="button" disabled={status !== "ready"} on:click={resetView}>Reset</button>
+      <button
+        type="button"
+        bind:this={backButton}
+        use:focusBackButton
+        on:click={() => dispatch("close")}
+      >{backLabel}</button>
+    </div>
   </div>
   <div class="venue-body" aria-busy={status === "loading"}>
     {#if status === "loading"}
@@ -107,9 +125,11 @@
     {:else if filtered}
       <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">{filtered.statusLabel}</p>
       {#if filtered.data.venues.length > 0}
-        <VenueActivityChart data={filtered.data} filterDescription={filtered.description} />
+        {#key chartResetVersion}
+          <VenueActivityChart data={filtered.data} filterDescription={filtered.description} {highlightedVenues} {selectionDescription} />
+        {/key}
       {:else}
-        <p class="view-state">No venue groups match. Lower the minimum or allow gaps.</p>
+        <p class="view-state">No venue groups match. Lower the minimum number of recorded years.</p>
       {/if}
       {#if data.unassignedYearRecordCount > 0}
         <p class="data-note">
@@ -131,7 +151,7 @@
             <tbody>
               {#each filtered.data.venues as venue (venue.venueKey)}
                 <tr>
-                  <th scope="row">{venue.venueName}</th>
+                  <th scope="row">{venue.venueName}{highlightedVenues.includes(venue) ? " (selected)" : ""}</th>
                   <td>{#each venue.venueNames as name, index}{index > 0 ? "; " : ""}{name || "Unnamed venue"}{/each}</td>
                   <td>{venue.codeLabel}</td>
                   <td>{venue.site.matchExplanation}</td>
@@ -160,11 +180,12 @@
   }
 
   .venue-header {
+    --toolbar-gap: 0.5rem;
     display: flex;
     flex-shrink: 0;
     align-items: flex-start;
     justify-content: flex-end;
-    gap: 1rem;
+    gap: var(--toolbar-gap);
     padding: 8px var(--content-padding) 4px;
   }
 
@@ -183,6 +204,17 @@
 
   button:hover {
     background: #efeee9;
+  }
+
+  .venue-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--toolbar-gap);
+  }
+
+  button:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
 
   .venue-body {
@@ -208,7 +240,7 @@
 
   .venue-filters {
     display: flex;
-    flex: 1;
+    flex: 0 1 20rem;
     min-width: 0;
     flex-wrap: wrap;
     align-items: center;
@@ -223,44 +255,129 @@
     width: 100%;
   }
 
-  .year-filter label {
-    display: block;
-    font-weight: 600;
-  }
-
-  input {
-    accent-color: #252525;
-    cursor: pointer;
-    pointer-events: auto;
+  .range-control {
+    position: relative;
+    min-height: 2.75rem;
   }
 
   input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
     display: block;
     width: 100%;
-    min-height: 2.75rem;
+    height: 2.75rem;
     margin: 0;
-  }
-
-  .range-labels {
-    display: flex;
-    justify-content: space-between;
-    margin-top: -0.5rem;
-    color: #595959;
-    font-size: 0.75rem;
-  }
-
-  .continuity-filter {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    gap: 0.5rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
     cursor: pointer;
   }
 
-  .continuity-filter input {
-    width: 1.125rem;
-    height: 1.125rem;
-    margin: 0;
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 1px;
+    border: 0;
+    background: #252525;
+  }
+
+  input[type="range"]::-moz-range-track,
+  input[type="range"]::-moz-range-progress {
+    height: 1px;
+    border: 0;
+    background: #252525;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -6.5px;
+    border: 0;
+    border-radius: 50%;
+    background: #252525;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 50%;
+    background: #252525;
+  }
+
+  input[type="range"]:focus-visible {
+    outline: none;
+  }
+
+  input[type="range"]:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid #006b63;
+    outline-offset: 2px;
+  }
+
+  input[type="range"]:focus-visible::-moz-range-thumb {
+    outline: 2px solid #006b63;
+    outline-offset: 2px;
+  }
+
+  .range-labels {
+    position: absolute;
+    top: -0.125rem;
+    right: 7px;
+    left: 7px;
+    height: 0.875rem;
+    color: #595959;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .range-min,
+  .range-max,
+  .range-labels output {
+    position: absolute;
+    top: 0;
+  }
+
+  .range-min {
+    left: 0;
+    transform: translateX(-50%);
+  }
+
+  .range-max {
+    right: 0;
+    transform: translateX(50%);
+  }
+
+  .range-labels output {
+    color: #252525;
+    font-weight: 700;
+    transform: translateX(-50%);
+  }
+
+  .range-labels .is-current {
+    visibility: hidden;
+  }
+
+  @media (forced-colors: active) {
+    input[type="range"]::-webkit-slider-runnable-track,
+    input[type="range"]::-webkit-slider-thumb {
+      background: CanvasText;
+    }
+
+    input[type="range"]::-moz-range-track,
+    input[type="range"]::-moz-range-progress,
+    input[type="range"]::-moz-range-thumb {
+      background: CanvasText;
+    }
+
+    input[type="range"]:focus-visible::-webkit-slider-thumb {
+      outline-color: Highlight;
+    }
+
+    input[type="range"]:focus-visible::-moz-range-thumb {
+      outline-color: Highlight;
+    }
   }
 
   @media (max-width: 40rem) {
@@ -268,7 +385,7 @@
       flex-wrap: wrap;
     }
 
-    .venue-header > button {
+    .venue-actions {
       order: -1;
       margin-left: auto;
     }

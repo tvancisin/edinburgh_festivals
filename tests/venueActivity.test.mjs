@@ -16,6 +16,8 @@ const { createVenueActivityData, sortVenuesByRecordedYears, venueActivityFiles, 
 const { groupEventsByVenueSite, normalizeVenueSiteAddress, normalizeVenueSitePostcode } = await import("../src/lib/utils/venueSites.ts");
 const { createVenueActivityLayout } = await import("../src/lib/utils/venueActivityLayout.ts");
 const { createVenueYearConnections, filterVenueActivityByConnections, selectVenueConnectionYears, summarizeVenueConnections } = await import("../src/lib/utils/venueActivityFilters.ts");
+const { findVenueActivityContext } = await import("../src/lib/utils/venueActivityContext.ts");
+const { groupHexBinEventsByVenue } = await import("../src/lib/utils/hexBinPopup.ts");
 
 function event(code, name, year, id = "same-id", location = {}) {
   return {
@@ -40,6 +42,85 @@ function activityData(overrides) {
     ...overrides.filter((source) => !venueActivityFiles.includes(source.fileName)),
   ]);
 }
+
+test("Context highlights stay readable among 1200 columns on narrow and wide screens", () => {
+  const records = Array.from({ length: 1200 }, (_, index) =>
+    event(`code-${index}`, `Venue ${String(index).padStart(4, "0")}`, 2025));
+  const data = activityData([
+    dataset("2025.csv", records),
+    dataset("2026.csv", records.map((record) => ({ ...record, year: 2026 }))),
+  ]);
+  assert.equal(data.venues.length, 1200);
+  for (const [width, height] of [[320, 480], [390, 700], [1280, 720], [1920, 1080]]) {
+    for (const index of [0, 600, 1199]) {
+      // A fresh object with the same stable group key must still be selected.
+      const selected = { ...data.venues[index] };
+      const layout = createVenueActivityLayout(data, width, height, null, [selected]);
+      const column = layout.columns[index];
+      assert.equal(layout.columns.filter((item) => item.highlighted).length, 1);
+      assert.equal(column.highlighted, true);
+      assert.ok(column.width >= 28);
+      assert.equal(column.labelFontSize, 13);
+      assert.ok(column.circleRadius >= 3);
+      assert.ok(column.connectionStrokeWidth >= 1.75);
+      const regular = layout.columns[index === 0 ? 1 : 0];
+      assert.ok(column.circleRadius > regular.circleRadius * 4);
+      assert.ok(column.labelFontSize > regular.labelFontSize * 4);
+      assert.equal(column.connections.length, 1);
+      assert.ok(column.connections[0].y2 > column.connections[0].y1);
+      for (const [position, item] of layout.columns.entries()) {
+        assert.equal(item.venue, data.venues[position]);
+        assert.ok(item.x - item.width / 2 >= -1e-8);
+        assert.ok(item.x + item.width / 2 <= layout.plotWidth + 1e-8);
+        assert.ok(item.x - item.circleRadius >= 0);
+        assert.ok(item.x + item.circleRadius <= layout.plotWidth);
+        if (position > 0) assert.ok(item.x > layout.columns[position - 1].x);
+      }
+    }
+  }
+});
+
+test("long Context labels shorten visually while retaining the full group and its source names", () => {
+  const name = "An unusually long venue name ".repeat(8);
+  const data = activityData([dataset("2025.csv", [event("long", name, 2025)])]);
+  const layout = createVenueActivityLayout(data, 320, 480, null, data.venues);
+  assert.equal(layout.columns[0].labelFontSize, 13);
+  assert.ok(layout.columns[0].label.endsWith("…"));
+  assert.ok(layout.columns[0].label.length < name.length);
+  assert.equal(layout.columns[0].venue.venueName, data.venues[0].venueName);
+  assert.ok(layout.columns[0].venue.accessibleLabel.includes(name));
+});
+
+test("hover uses the Context sizes with stable hit slots, restores selection on leave, and clears to default", () => {
+  const records = Array.from({ length: 600 }, (_, index) => event(`code-${index}`, `Venue ${index}`, 2025));
+  const data = activityData([
+    dataset("2025.csv", records),
+    dataset("2026.csv", records.map((record) => ({ ...record, year: 2026 }))),
+  ]);
+  const selected = data.venues[200];
+  const hovered = data.venues[450];
+  for (const width of [320, 1280]) {
+    const context = createVenueActivityLayout(data, width, 720, null, [selected]);
+    const preview = createVenueActivityLayout(data, width, 720, null, [selected], hovered.venueKey);
+    assert.deepEqual(preview.columns.map((column) => column.targetX), context.columns.map((column) => column.targetX));
+    assert.deepEqual(preview.columns.map((column) => column.width), context.columns.map((column) => column.width));
+    assert.equal(preview.columns[200].highlighted, false);
+    assert.equal(preview.columns[450].highlighted, true);
+    assert.equal(preview.columns[450].labelFontSize, context.columns[200].labelFontSize);
+    assert.equal(preview.columns[450].circleRadius, context.columns[200].circleRadius);
+    assert.equal(preview.columns[450].connectionStrokeWidth, context.columns[200].connectionStrokeWidth);
+    assert.equal(preview.paintColumns.at(-1).venue, hovered);
+    assert.deepEqual(createVenueActivityLayout(data, width, 720, null, [selected], null), context);
+    const cleared = createVenueActivityLayout(data, width, 720, null, [], null);
+    assert.deepEqual(cleared, createVenueActivityLayout(data, width, 720));
+    assert.ok(cleared.columns.every((column) => !column.highlighted));
+    const withoutSelection = createVenueActivityLayout(data, width, 720, null, [], hovered.venueKey);
+    assert.equal(withoutSelection.columns[450].circleRadius, 4);
+    assert.deepEqual(withoutSelection.columns.map((column) => column.targetX), cleared.columns.map((column) => column.targetX));
+    const stalePreview = createVenueActivityLayout(data, width, 720, null, [selected], "filtered-out-key");
+    assert.deepEqual(stalePreview, context);
+  }
+});
 
 function connectionFixture() {
   return activityData(venueActivityYears.map((year) => dataset(`${year}.csv`, [
@@ -247,7 +328,7 @@ test("all columns and fifteen year rows fit the measured dimensions with no over
   for (const [width, height] of [[296, 180], [720, 260], [1440, 320], [1440, 900]]) {
     const layout = createVenueActivityLayout(data, width, height);
     assert.equal(layout.columns.length, 913);
-    assert.ok(layout.axisWidth + layout.svgWidth <= width);
+    assert.ok(layout.axisWidth + layout.plotWidth <= width);
     assert.ok(layout.lastYearY - layout.firstYearY > 0);
     assert.equal(layout.years.length, 15);
     for (let index = 1; index < layout.years.length; index += 1) {
@@ -261,10 +342,10 @@ test("all columns and fifteen year rows fit the measured dimensions with no over
     assert.ok(layout.labelFontSize > 0);
     assert.ok(layout.circleRadius > 0 && layout.circleRadius <= 1.5);
     assert.ok(layout.connectionStrokeWidth > 0 && layout.connectionStrokeWidth < layout.circleRadius);
-    assert.ok(Math.abs(layout.gridTop - layout.nameBaselineY - 8) < 1e-9);
+    assert.ok(Math.abs(layout.gridTop - layout.nameBaselineY - 2) < 1e-9);
     for (const column of layout.columns) {
       assert.ok(column.x - layout.circleRadius >= 0);
-      assert.ok(column.x + layout.circleRadius <= layout.svgWidth);
+      assert.ok(column.x + layout.circleRadius <= layout.plotWidth);
       assert.ok(column.labelFontSize > 0);
       assert.ok(column.venue.venueName.length * column.labelFontSize * 0.65 <= layout.nameBaselineY - 8 + 1e-9);
     }
@@ -274,7 +355,7 @@ test("all columns and fifteen year rows fit the measured dimensions with no over
     }
     const spacing = layout.columns[1].x - layout.columns[0].x;
     assert.ok(layout.circleRadius * 2 < spacing);
-    assert.ok(Math.abs(layout.years.at(-1).y + layout.yearStep / 2 - (height - 8)) < 1e-9);
+    assert.ok(Math.abs(layout.years.at(-1).y + layout.circleRadius - (height - 8)) < 1e-9);
     assert.ok(layout.labelFontSize < spacing);
   }
   const narrow = createVenueActivityLayout(data, 296, 180);
@@ -294,22 +375,53 @@ test("long combined names fit the label area and an unmeasured container has fin
   assert.ok(data.venues[0].venueName.length * layout.labelFontSize * 0.65 <= layout.nameBaselineY - 8 + 1e-9);
   assert.ok(layout.columns[0].labelFontSize < layout.columns[1].labelFontSize);
   const initial = createVenueActivityLayout(data, 0, 0);
-  for (const value of [initial.svgWidth, initial.svgHeight, initial.labelFontSize, initial.circleRadius, initial.connectionStrokeWidth]) {
+  for (const value of [initial.plotWidth, initial.plotHeight, initial.labelFontSize, initial.circleRadius, initial.connectionStrokeWidth]) {
     assert.ok(Number.isFinite(value));
     assert.ok(value >= 0);
   }
 });
 
-test("measured vertical labels move the grid up to an eight-pixel gap", () => {
+test("measured vertical labels sit two pixels above the first circles without a half-row inset", () => {
   const data = activityData([dataset("2021.csv", [event("1", "A venue", 2021)])]);
   const layout = createVenueActivityLayout(data, 720, 320, 37.5);
   assert.equal(layout.nameBaselineY, 45.5);
-  assert.equal(layout.gridTop, 53.5);
+  assert.equal(layout.gridTop, 47.5);
+  assert.equal(layout.firstYearY - layout.circleRadius - layout.nameBaselineY, 2);
   assert.ok(layout.firstYearY > layout.gridTop);
   assert.ok(layout.lastYearY < 320);
   const tall = createVenueActivityLayout(data, 720, 900, 500);
   assert.ok(tall.gridTop < 900 * 0.2, "long label measurements must not consume a large part of the screen");
   assert.ok(tall.lastYearY - tall.firstYearY > 900 * 0.75, "year rows must use the available vertical space");
+});
+
+test("Context, hover and Reset keep year centers and spacing fixed while enlarged names float above them", () => {
+  const records = Array.from({ length: 300 }, (_, index) => event("fixed-" + index,
+    index === 100 ? "A long highlighted venue name that must not squeeze the chart" : "Venue " + index, 2025));
+  const data = activityData([
+    dataset("2025.csv", records),
+    dataset("2026.csv", records.map((record) => ({ ...record, year: 2026 }))),
+  ]);
+  const selected = data.venues.find((venue) => venue.venueName.startsWith("A long highlighted venue"));
+  for (const [width, height] of [[320, 480], [1475, 810]]) {
+    const normal = createVenueActivityLayout(data, width, height);
+    const context = createVenueActivityLayout(data, width, height, null, [selected]);
+    const hover = createVenueActivityLayout(data, width, height, null, [], selected.venueKey);
+    for (const layout of [context, hover]) {
+      assert.deepEqual(layout.years, normal.years);
+      assert.equal(layout.yearStep, normal.yearStep);
+      assert.equal(layout.gridTop, normal.gridTop);
+      const marked = layout.columns.find((column) => column.highlighted);
+      assert.equal(marked.labelHorizontal, true);
+      assert.equal(marked.labelFontSize, 13);
+      const circleTop = layout.firstYearY - marked.circleRadius - Math.min(1, marked.circleRadius * 0.25) / 2;
+      const labelBottom = marked.labelY + 0.5;
+      assert.ok(Math.abs(circleTop - labelBottom - 2) < 1e-9);
+      assert.ok(marked.labelX >= 0);
+      assert.ok(marked.labelY - marked.labelFontSize >= 0);
+    }
+    assert.deepEqual(createVenueActivityLayout(data, width, height, null, [], null), normal);
+    assert.ok(Math.abs(normal.firstYearY - normal.circleRadius - normal.nameBaselineY - 2) < 1e-9);
+  }
 });
 
 test("comparison addresses normalize road suffixes, postcode spacing, dashes and locality without rewriting Saint", () => {
@@ -471,6 +583,11 @@ test("2012–2026 CSV integration retains all rows, only merges original code gr
   assert.ok(roxy.recordedYearCount >= 6);
   const storytelling = data.venues.find((venue) => venue.venueKey === "site:scottish-storytelling-centre");
   assert.ok(storytelling.venueNames.includes("Netherbow Theatre"));
+  const selectedSourceEvent = storytelling.events.find((record) => record.venue.name === "Netherbow Theatre");
+  const popupSelection = groupHexBinEventsByVenue({ events: [selectedSourceEvent] })[0];
+  assert.deepEqual(findVenueActivityContext(data, popupSelection), [storytelling]);
+  assert.deepEqual(findVenueActivityContext(data, structuredClone(popupSelection)), [storytelling]);
+  assert.equal(findVenueActivityContext(data, popupSelection)[0].presence, storytelling.presence);
   assert.ok(storytelling.venueNames.includes("Storytelling Court"));
   assert.ok(storytelling.venueNames.every((name) => !/online/i.test(name)));
   const efi = data.venues.find((venue) => venue.venueKey === "site:edinburgh-futures-institute");

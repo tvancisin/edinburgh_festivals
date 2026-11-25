@@ -28,14 +28,19 @@
   let height = 0;
   let pandemicIndicatorSegments: { height: number; y: number }[] = [];
 
-  $: horizontalMargin = calculateFestivalHistoryHorizontalMargin(width);
-  $: timelineLeadingSpace = 36;
   $: verticalLayout = calculateFestivalHistoryVerticalLayout(
     height,
     timelines.length,
+    width,
   );
-  $: timelineGroupHeight = verticalLayout.timelineGroupHeight;
-  $: timelineGroupStart = verticalLayout.timelineGroupStart;
+  // Keep the SVG at its measured size; scale all of its drawing elements
+  // together while the year scale still spans the available horizontal space.
+  $: drawingScale = verticalLayout.elementScale || 1;
+  $: drawingWidth = width / drawingScale;
+  $: horizontalMargin = calculateFestivalHistoryHorizontalMargin(width) / drawingScale;
+  $: timelineLeadingSpace = 36;
+  $: timelineGroupHeight = verticalLayout.timelineGroupHeight / drawingScale;
+  $: timelineGroupStart = verticalLayout.timelineGroupStart / drawingScale;
   $: pandemicIndicatorTop = Math.max(16, timelineGroupStart - 50);
   $: pandemicIndicatorBottom = timelineGroupStart + timelineGroupHeight + 19;
   $: timelineX = d3
@@ -45,7 +50,7 @@
       horizontalMargin + timelineLeadingSpace,
       Math.max(
         horizontalMargin + timelineLeadingSpace,
-        width - horizontalMargin,
+        drawingWidth - horizontalMargin,
       ),
     ]);
   $: timelineY = d3
@@ -209,6 +214,7 @@
       data, and ticketing data encodings. Labels mark the events data period
       from 2012 to 2026.
     </desc>
+    <g transform={`scale(${drawingScale})`}>
     {#each timelineRows as timeline, index}
       <g class="timeline-row">
         <path class="timeline-line" d={timeline.timelinePath} />
@@ -342,6 +348,7 @@
         text-anchor="middle">COVID</text
       >
     </g>
+    </g>
   </svg>
 </div>
 
@@ -374,19 +381,19 @@
   }
 
   .festival-name {
-    font-size: clamp(0.75rem, 1.8vw, 1rem);
+    font-size: 16px;
     font-weight: 700;
   }
 
   .foundation-year {
-    font-size: clamp(0.6875rem, 1.6vw, 1rem);
+    font-size: 16px;
     font-weight: 700;
   }
 
   .data-legend-label {
     fill: #252525;
     font-family: inherit;
-    font-size: clamp(0.625rem, 1.4vw, 1rem);
+    font-size: 16px;
     letter-spacing: -0.02em;
   }
 
@@ -407,7 +414,7 @@
   .data-period-tick-label {
     fill: #252525;
     font-family: inherit;
-    font-size: clamp(0.6875rem, 1.6vw, 1rem);
+    font-size: 16px;
     letter-spacing: -0.02em;
     font-weight: 700;
   }
@@ -415,7 +422,7 @@
   .pandemic-indicator {
     fill: #252525;
     font-family: inherit;
-    font-size: clamp(0.625rem, 1.4vw, 0.75rem);
+    font-size: 12px;
     letter-spacing: -0.02em;
     pointer-events: none;
   }

@@ -119,7 +119,7 @@
 
   .timeline-axis,
   .month-tick {
-    stroke: #777777;
+    stroke: #c0c0c0;
     stroke-width: 1;
   }
 
@@ -128,7 +128,7 @@
   }
 
   .month-label {
-    fill: #717171;
+    fill: #797979;
     letter-spacing: -0.05em;
     font-size: 12px;
     font-weight: 700;

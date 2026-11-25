@@ -10,7 +10,17 @@ export type DataCoverageInterval = {
 export type FestivalHistoryVerticalLayout = {
   timelineGroupHeight: number;
   timelineGroupStart: number;
+  rowGap: number;
+  elementScale: number;
 };
+
+export const festivalHistorySpacing = {
+  logoGap: 16,
+  annotationsTop: 64,
+  annotationsBottom: 56,
+  preferredRowGap: 68,
+  referenceWidth: 960,
+} as const;
 
 export const eventsDataCoverageIntervals: readonly DataCoverageInterval[] = [
   { startYear: 2012, endYearExclusive: 2027 },
@@ -21,22 +31,40 @@ export function calculateFestivalHistoryHorizontalMargin(width: number): number 
 }
 
 /**
- * Calculates responsive vertical spacing for the festival history timeline.
+ * Fit rows within the measured history container, which starts below the logo.
+ * Scale text, bars, markers, and annotation margins together to fit the measured
+ * width and height. Prefer 68-pixel row spacing, capped by the remaining height,
+ * and center any spare space. All rows remain visible without scrolling.
  */
 export function calculateFestivalHistoryVerticalLayout(
   height: number,
   timelineCount: number,
+  width: number = festivalHistorySpacing.referenceWidth,
 ): FestivalHistoryVerticalLayout {
-  const rowCount = Math.max(1, timelineCount - 1);
-  const maximumRowGap = Math.max(0, (height - 64) / rowCount);
-  const rowGap = Math.min(58, maximumRowGap);
+  const boundedHeight = Math.max(0, height);
+  const rowCount = Math.max(0, timelineCount - 1);
+  const preferredHeight =
+    festivalHistorySpacing.annotationsTop
+    + festivalHistorySpacing.annotationsBottom
+    + rowCount * festivalHistorySpacing.preferredRowGap;
+  const elementScale = Math.min(
+    1,
+    boundedHeight / preferredHeight,
+    Math.max(0, width) / festivalHistorySpacing.referenceWidth,
+  );
+  const top = festivalHistorySpacing.annotationsTop * elementScale;
+  const bottom = festivalHistorySpacing.annotationsBottom * elementScale;
+  const availableHeight = Math.max(0, boundedHeight - top - bottom);
+  const rowGap = rowCount > 0
+    ? Math.min(festivalHistorySpacing.preferredRowGap, availableHeight / rowCount)
+    : 0;
   const timelineGroupHeight = rowGap * rowCount;
-  const availableVerticalSpace = Math.max(0, height - timelineGroupHeight);
-  const verticalOffset = Math.min(32, availableVerticalSpace / 4);
 
   return {
     timelineGroupHeight,
-    timelineGroupStart: availableVerticalSpace / 2 + verticalOffset,
+    timelineGroupStart: top + Math.max(0, availableHeight - timelineGroupHeight) / 2,
+    rowGap,
+    elementScale,
   };
 }
 

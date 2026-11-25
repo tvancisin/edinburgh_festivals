@@ -86,7 +86,7 @@ export function summarizeVenueConnections(
 export function filterVenueActivityByConnections(
   data: VenueActivityData,
   minimumYears: number,
-  continuousOnly: boolean,
+  continuousOnly = false,
 ): VenueConnectionFilterResult {
   const eligibleYears = selectVenueConnectionYears(data.years);
   const maximumYears = eligibleYears.length;

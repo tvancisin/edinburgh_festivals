@@ -71,6 +71,21 @@ hexagon counts continue to count source event records, including repeats,
 rather than unique events or venues. Opacity is rescaled within each rendered
 selection and zoom level. It does not provide a fixed cross-year comparison.
 
+Clicking or tapping a hexagon opens a venue-name list. `groupHexBinEventsByVenue`
+in `hexBinPopup.ts` groups exact names after trimming surrounding whitespace,
+in first-seen order within the bin. Case and punctuation differences remain
+distinct; blank names share an `Unnamed venue` entry. These are source-name
+groups, not verified physical-site identities or the venue explorer's site
+groups. Every contributing event and raw row remains on its derived group.
+The popup lists all names, with scrolling for long lists, and omits individual
+event titles and counts. Hexbin membership and event-count opacity are unchanged.
+Each name has a Context button that opens the existing full Venues view.
+Returning restores the map and focus to that button when it is still present.
+The selected popup entry retains its event objects. Their literal source venue
+codes identify the existing all-year chart groups without matching display
+names, event IDs, or JavaScript object identities.
+See [venue-activity.md](venue-activity.md) for the highlight method.
+
 The native Event year select supports keyboard and touch input. Loading,
 error with retry, empty-event, and no-location states are provided. Text
 alternatives and event-country summaries include the selected year scope.

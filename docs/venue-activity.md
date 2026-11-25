@@ -105,13 +105,10 @@ Its value counts recorded years, not links between years or event records.
 rows remain visible, including the original 2020 records for matching groups.
 A group recorded only in 2020 therefore does not match even the minimum of 1.
 
-By default, gaps are allowed: the threshold uses the total number of distinct
-recorded years excluding 2020. With Continuous years only checked, it uses the
-longest consecutive run in the eligible-year sequence. 2019 and 2021 are
-treated as consecutive, regardless of whether that group has a 2020 record.
-Any other missing year breaks a run. A run of N recorded years counts as N,
-including its endpoints. No missing records are filled in, and this is not
-evidence of continuous venue operation.
+Gaps are allowed: the threshold uses the total number of distinct recorded
+years excluding 2020. The Continuous years only checkbox was removed at the
+user's request on November 25, 2026. No missing records are filled in, and
+recorded-year counts are not evidence of continuous venue operation.
 
 The named helpers in venueActivityFilters.ts select eligible years, summarize
 each group's counts/runs, and filter complete columns without changing group
@@ -121,14 +118,102 @@ filtering does not recalculate the original all-year sort. The original data
 and all raw rows remain accessible. Setting the minimum to 1 restores groups
 with at least one eligible year. No files are reloaded when controls change.
 
-The labeled native range input and checkbox support keyboard and touch use,
-remain inside the dialog's focus trap, and show the minimum. The explanatory
-2020 note is visually hidden at the user's request; it remains associated with
+The labeled native range input supports keyboard and touch use,
+remains inside the dialog's focus trap, and shows the minimum.
+The slider is styled as a thin neutral line with a circular thumb. Its endpoint
+numbers and current value sit above the track, with the current value aligned
+to the thumb. The descriptive label remains available to assistive technology,
+and the control retains a 44-pixel hit area and a visible keyboard focus ring.
+The explanatory 2020 note is visually hidden at the user's request; it remains associated with
 the controls for screen readers and documented in the chart description.
 A visually hidden live status reports matching groups to screen readers; an empty result keeps the controls
 available. Chart descriptions and the filtered screen-reader table use the
 same selection and explain the active filter. Circles and their thin connecting
-lines share the same dark gray.
+lines share the same dark gray, except for the Context selection described below.
+
+### Selection from the map popup
+
+Added November 25, 2026. A venue's Context button passes its retained source
+event objects into the Venues view. `findVenueActivityContext` in
+`venueActivityContext.ts` uses their exact source venue codes to find existing
+all-year groups. Each literal code belongs to exactly one chart group because
+the grouping method never splits a code. Leading zeros and the original
+blank-code group remain distinct. This selection survives reloaded/copied
+records without relying on object identity, display names, or event IDs.
+One popup name can represent several codes/groups; all matches are highlighted.
+
+The selected groups' recorded-year circles and existing connecting lines use
+the existing teal accent. Selected columns reserve up to 28 additional pixels
+each (at most 60% of plot width collectively), preserving column order and
+fitting all other columns into the remaining width. Labels reach 13 pixels,
+circle radii 4 pixels, and line widths 2 pixels, subject to the measured space.
+An underlined bold label and heavier outlined marks provide additional cues.
+Selected labels float horizontally in the existing label band and can use up
+to 320 pixels or the available plot width. Long labels are shortened with an
+ellipsis, with full names retained in accessible descriptions,
+pointer tooltips, accessible label controls, and text table. Only existing marks
+are emphasized; the year-presence and connection rules are unchanged, including
+the 2020 rule. The full group is highlighted across all recorded years, not
+only the map's selected year. Grouping, source rows, chart order, and filters
+are unchanged. Opening Venues from the intro clears the Context selection.
+
+The visible selection-status paragraph was removed for all venues at the
+user's request. The accessible chart description, label controls, and table
+row labels still identify the selection. If the year filters hide some or all
+matching groups, the accessible description explains this rather than
+overriding the filters or adding circles. Loading and retry retain the selected
+entry, and Back to map restores focus to its Context button when still present.
+
+### Reset and venue-label highlights
+
+Reset restores the default minimum of one recorded eligible year
+and clears the map Context selection and all hover,
+keyboard, and touch highlights. It leaves the Venues view open and uses the
+already loaded data. The 2020 counting rule and original venue grouping remain
+unchanged. Reset remains available when the current filters match no venues.
+
+Hovering anywhere in the venue-label band previews the corresponding venue
+using the same larger teal label, circles, and lines as Context. Leaving the
+band restores the Context selection, or the default view if none was selected.
+Hit slots keep their original horizontal positions while preview marks grow,
+preventing hover flicker. Preview marks paint above the other columns, with
+a neutral halo behind the label; no data or column order is changed.
+
+The label band has one keyboard focus stop. Arrow keys move between venues,
+Home/End jump to the ends, and Enter/Space retain a highlight after focus leaves.
+Touch users can tap the same band to retain a highlight. Reset clears these
+retained highlights. Full names remain available through accessible options,
+the pointer tooltip and the text table. No animations are added.
+
+### Canvas rendering and redraws
+
+Changed November 25, 2026 at the user's request. `VenueActivityChart.svelte`
+uses one Canvas 2D surface for the year labels, venue names, recorded-year
+circles, and connections. `venueActivityCanvas.ts` draws the existing typed
+layout using the inherited font, neutral colors, and the same teal highlights.
+This is a chart-specific exception to the project's SVG preference; no drawing
+library, dependency, service, or data transformation is introduced.
+
+The backing bitmap follows the measured container width and height, scaled
+for device pixel ratio. It is reallocated only when its pixel dimensions change.
+Pointer, filter, and resize updates are coalesced into one pending animation-frame
+callback, which draws the newest state without an animated transition. Closing
+the view or resetting cancels any pending draw and releases its bitmap.
+
+Text widths are measured with the canvas context and cached by font and label,
+with a bounded cache cleared when fonts finish loading. There is no per-label
+DOM measurement or SVG update loop. Connection membership and retained source-row
+arrays are cached against immutable presence arrays; redraws update only their
+pixel endpoints. Normal circles and connections use batched paths; highlighted
+marks draw last. Hover hit-testing binary-searches the fixed, ordered label slots.
+
+The keyboard listbox keeps just its active option in the DOM, with the original
+position and full option count announced to assistive technology. Arrow/Home/End
+navigation still reaches every venue. The complete text table, source names,
+codes, grouping evidence, and year records remain available independently of
+canvas. Loading, empty, error, Reset, touch pinning, focus restoration, and map
+Context selection keep their existing behavior. An unavailable canvas produces
+an explicit error instead of silently hiding the chart.
 
 ### Chart layout
 
@@ -139,12 +224,20 @@ an accessible name, and count feedback remains available to screen readers.
 Filters and the back button share the top toolbar on wide screens; they wrap
 on narrow screens. The toolbar has compact vertical padding. No empty title,
 count, or explanatory-note rows reserve space above the chart. The full-screen
-container assigns all remaining height to the chart, independently of the SVG's
-intrinsic size.
-All columns fit the measured width without scrolling, with the requested very
-small vertical names above them. Their label area is capped at 96 pixels and
-20% of the chart height, with label fonts sized to fit. The grid starts eight pixels below the name
-baseline. A tiny circle sits at each recorded year-band center, with radius
+container assigns all remaining height to the chart, independently of the
+canvas bitmap's intrinsic size.
+All columns fit the measured width without scrolling. Unselected columns retain
+the small vertical names above them, sized against a label area capped at 96
+pixels and 20% of chart height. This band is based on the neutral fonts and
+measurements regardless of the highlighted venue, with an 18-pixel minimum for
+the horizontal enlarged label. Context, hover, keyboard, and touch highlights
+never change the year centers or row spacing. Enlarged names float above the
+grid instead of taking height from it.
+
+There are two pixels between the visible label edge and the top of the first
+row's circles, including the enlarged underline and circle outline. The year
+scale places the first and last row centers directly, removing the former
+half-row inset above 2012. A tiny circle marks each recorded year, with radius
 at most 1.5 pixels and scaled down to fit narrow venue columns. The circles
 remain small as the chart grows vertically. Thin vertical lines connect
 consecutive recorded years within each venue group, stopping at circle edges.
@@ -158,11 +251,11 @@ across other missing years. Lines encode record adjacency, not continuous venue
 operation. An unrecorded year has no circle. Rows run from 2012 at the top to
 2026 at the bottom. The chart fills the available height below the header,
 with no chart-height or year-band cap, leaving eight pixels below the final
-year band. It still fits all rows without scrolling. Rendering remains
-declarative Svelte SVG using bound container dimensions and no viewBox.
+year band. It still fits all rows without scrolling. Canvas rendering uses the
+same bound container dimensions and typed layout calculations.
 
-Circle presence and connecting lines provide the encoding independently of color. SVG text,
-column titles, and the screen-reader table provide original names/codes,
+Circle presence and connecting lines provide the encoding independently of color.
+Accessible descriptions, pointer tooltips, and the screen-reader table provide original names/codes,
 grouping evidence, and year presence. Loading, empty, retry, keyboard focus,
 Escape, and focus restoration remain supported. The removed introductory
 explanatory paragraph remains removed. Resizing adds no animation.

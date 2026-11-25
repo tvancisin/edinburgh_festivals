@@ -44,8 +44,9 @@
   import {
     addHexagonalBinOpacities,
     createHexagonalFestivalBins,
-    type HexagonalFestivalBin,
   } from "./utils/hexBins";
+  import { createHexBinPopupContent, groupHexBinEventsByVenue, type HexBinVenue } from "./utils/hexBinPopup";
+  import type { HexagonalFestivalBin } from "./utils/hexBins";
   import {
     approxCameraAltitude,
     formatApproxCameraAltitude,
@@ -66,6 +67,7 @@
 
   const dispatch = createEventDispatcher<{
     loadStateChange: BaseMapLoadState;
+    openVenueExplorer: { trigger: HTMLButtonElement; venue: HexBinVenue };
     retryFestivalData: void;
     legendNext: void;
     legendDismiss: void;
@@ -73,6 +75,7 @@
 
   const hexBinRadius = 16;
   const mapCircleTimelineOffset = 5;
+  const popupVenueByButton = new WeakMap<HTMLButtonElement, HexBinVenue>();
 
   // Vite serves the MapLibre worker from an explicit bundled asset URL.
   maplibregl.setWorkerUrl(maplibreWorkerUrl);
@@ -192,6 +195,30 @@
     mapElement.focus({ preventScroll: true });
   }
 
+  function handleVenueContextClick(event: MouseEvent) {
+    const button = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>(".venue-context")
+      : null;
+    const venue = button ? popupVenueByButton.get(button) : undefined;
+    if (button && venue) {
+      event.stopPropagation();
+      dispatch("openVenueExplorer", { trigger: button, venue });
+    }
+  }
+
+  function handleHexBinPopupOpen(event: L.PopupEvent, bin: HexagonalFestivalBin) {
+    const popupElement = event.popup.getElement();
+    const venues = groupHexBinEventsByVenue(bin);
+    popupElement?.querySelectorAll<HTMLButtonElement>(".venue-context").forEach((button, index) => {
+      popupVenueByButton.set(button, venues[index]);
+    });
+    popupElement?.addEventListener("click", handleVenueContextClick);
+  }
+
+  function handleHexBinPopupClose(event: L.PopupEvent) {
+    event.popup.getElement()?.removeEventListener("click", handleVenueContextClick);
+  }
+
   function renderEventHexBins(events: FestivalData[]) {
     const eventsWithCoordinates = filterFestivalDataWithCoordinates(events);
 
@@ -228,7 +255,7 @@
           currentMap.unproject([vertex.x, vertex.y], zoom),
         ),
         {
-          color: "#252525",
+          color: "#ffffff00",
           fillColor: "#006b63",
           fillOpacity: bin.fillOpacity,
           weight: 0.5,
@@ -238,41 +265,11 @@
         .bindPopup(createHexBinPopupContent(bin), {
           className: "event-popup-container",
           maxWidth: 240,
+          maxHeight: Math.max(80, Math.min(240, circleRadius)),
         })
+        .on("popupopen", (event: L.PopupEvent) => handleHexBinPopupOpen(event, bin))
+        .on("popupclose", handleHexBinPopupClose)
         .addTo(markerLayer);
-    });
-  }
-
-  function createHexBinPopupContent(bin: HexagonalFestivalBin) {
-    const visibleEvents = bin.events.slice(0, 10);
-    const hiddenEventCount = bin.events.length - visibleEvents.length;
-    const eventItems = visibleEvents
-      .map((event) => {
-        const title = event.title.trim() || "Untitled event";
-        const venue = event.venue.name.trim();
-        const venueDetail = venue ? `<br>${escapeHtml(venue)}` : "";
-
-        return `<li><strong>${escapeHtml(title)}</strong>${venueDetail}</li>`;
-      })
-      .join("");
-    const remainingEvents = hiddenEventCount
-      ? `<p>${hiddenEventCount.toLocaleString("en-GB")} additional event records are in this bin.</p>`
-      : "";
-
-    return `<section class="event-popup"><h3>${bin.events.length.toLocaleString("en-GB")} event records in this area</h3><p>Shows are grouped by their map location at this zoom level.</p><ul>${eventItems}</ul>${remainingEvents}</section>`;
-  }
-
-  function escapeHtml(value: string) {
-    return value.replace(/[&<>'"]/g, (character) => {
-      const entities: Record<string, string> = {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "'": "&#39;",
-        '"': "&quot;",
-      };
-
-      return entities[character];
     });
   }
 </script>
@@ -283,6 +280,7 @@
     An interactive map of Edinburgh using OpenStreetMap base data is visible
     through a circular window. Hexagons group festival venue locations, and
     their opacity indicates the number of source event records in each area.
+    Click or tap a hexagon to list the venue names recorded in that area.
     Arcs around that window show fixed festival calendar dates, independent of
     the event-year filter. Use your
     keyboard, mouse, trackpad, or touch screen to navigate the map.
@@ -302,7 +300,7 @@
       disabled={festivalDataStatus === "loading" || festivalDataStatus === "error"}
       aria-describedby="festival-year-note"
     >
-      <option value="all">All years</option>
+      <option value="all">2012-2026</option>
       {#each availableYears as year}
         <option value={year}>{year}</option>
       {/each}
@@ -664,11 +662,17 @@
   :global(.event-popup) {
     color: #252525;
     font-size: 0.875rem;
+    overflow-wrap: anywhere;
   }
 
   :global(.event-popup h3) {
     margin: 0 0 0.5rem;
     font-size: 1rem;
+  }
+
+  :global(.event-popup:focus-visible) {
+    outline: 2px solid #006b63;
+    outline-offset: -2px;
   }
 
   :global(.event-popup dl) {
@@ -680,7 +684,44 @@
 
   :global(.event-popup ul) {
     margin: 0.5rem 0;
-    padding-left: 1.25rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  :global(.event-popup li) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  :global(.event-popup li + li) {
+    margin-top: 0.375rem;
+  }
+
+  :global(.event-popup .venue-name) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :global(.event-popup .venue-context) {
+    flex: none;
+    min-height: 1.5rem;
+    padding: 0.125rem 0.375rem;
+    border: 0;
+    border-radius: 0.125rem;
+    background: #e2e2e2;
+    color: #252525;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  :global(.event-popup .venue-context:hover) {
+    background: #d2d2d2;
+  }
+
+  :global(.event-popup .venue-context:focus-visible) {
+    outline: 2px solid #006b63;
+    outline-offset: -2px;
   }
 
   :global(.event-popup dt) {
