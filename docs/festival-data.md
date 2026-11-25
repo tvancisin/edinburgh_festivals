@@ -1,6 +1,6 @@
 # Festival dataset loading and formatting
 
-Updated November 24, 2026.
+Updated November 25, 2026.
 
 The festival-data startup step loads all 15 local CSVs from
 `public/data/2012.csv` through `public/data/2026.csv` concurrently. After every
@@ -49,8 +49,15 @@ across or within files. All years includes records whose year is `null`.
 known event years. It does not infer years from filenames or performance dates.
 
 `selectFestivalMapYear` selects exact matches to the formatted source year.
-`groupFestivalMapEvents` groups that selection by exact source festival name,
-retaining every event and its raw row. Selecting a festival resolves its group
+`groupFestivalMapEvents` groups that selection by its timeline selection key.
+`resolveFestivalMapName` explicitly maps nine historical source-name variants
+to the corresponding arc keys. The complete mapping, evidence, and every
+festival/year's source and coordinate counts appear in
+[festival-map-audit.md](festival-map-audit.md). Unlisted names match exactly;
+no fuzzy or substring matching is used.
+The formatted event's festival name and original raw row remain unchanged.
+Groups retain source order and repeated records, including when historical and current
+names coexist. Selecting a festival resolves its group
 again after each year change, so a festival absent from a year produces an
 empty view. Resetting the festival keeps the selected year; choosing All years
 restores all years while retaining the festival selection. Base records and
@@ -76,8 +83,9 @@ The circular calendar uses the existing configured month/day ranges from
 `festivals.js`, with their former 2025/2026 year prefixes removed. These are
 fixed display dates, not dates calculated from CSV events and not a claim that
 every year's festival occurred on those dates. Selecting a year does not move
-the arcs. Historical festival names are not silently matched to other names;
-arc selections use their configured exact source-name keys.
+the arcs. Arc selections use their configured source-name keys, with only the
+explicit historical aliases documented in the map audit. Mela source records
+remain in All festivals; there is no Mela arc in the current configuration.
 
 `festivalTimeline.ts` calculates arc paths, month ticks, and today's marker.
 It uses an internal UTC leap-year reference solely for month/day geometry,

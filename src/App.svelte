@@ -15,6 +15,7 @@
   } from "./lib/utils/countryStripData";
   import { loadTicketData, type TicketData } from "./lib/utils/ticketData";
   import Map from "./lib/Map.svelte";
+  import type { BaseMapLoadState } from "./lib/utils/baseMapLoad";
   import { nextLegendStage, type LegendStage } from "./lib/utils/legendGuide";
   import FestivalHistory from "./lib/FestivalHistory.svelte";
   import VenueExplorer from "./lib/VenueExplorer.svelte";
@@ -47,6 +48,7 @@
   let isTicketDataLoaded = false;
   let areFontsLoaded = false;
   let isMapLoaded = false;
+  let mapLoadError: string | null = null;
   let isInitialScreenReady = false;
   let loadingProgress = 0;
   let mainHeight = 0;
@@ -78,7 +80,7 @@
     }
   }
 
-  $: console.log(baseFestivalDatasets);
+  $: console.log("base api data: ", baseFestivalDatasets);
 
   async function waitForDocumentFonts() {
     if ("fonts" in document) {
@@ -136,6 +138,7 @@
   );
 
   function dismissInitialScreen() {
+    if (!isInitialScreenReady) return;
     isInitialScreenVisible = false;
   }
 
@@ -169,8 +172,9 @@
     }
   }
 
-  function handleMapLoaded() {
-    isMapLoaded = true;
+  function handleMapLoadStateChange(event: CustomEvent<BaseMapLoadState>) {
+    mapLoadError = event.detail.error;
+    isMapLoaded = event.detail.status === "loaded";
   }
 </script>
 
@@ -186,7 +190,9 @@
   <div class="initial-screen" aria-busy={!isInitialScreenReady}>
     <div class="loading-indicator">
       <p aria-live="polite">
-        {isInitialScreenReady ? "Loading Complete" : "Loading..."}
+        {mapLoadError
+          ? "Map could not be loaded"
+          : isInitialScreenReady ? "Loading Complete" : "Loading..."}
       </p>
       <div
         class="loading-bar"
@@ -198,6 +204,9 @@
       >
         <span aria-hidden="true" style:width={`${loadingProgress}%`}></span>
       </div>
+      {#if mapLoadError}
+        <p class="map-load-error" role="status">{mapLoadError}</p>
+      {/if}
       {#if isInitialScreenReady}
         <button
           class="enter-button"
@@ -212,7 +221,7 @@
 {/if}
 
 {#if !showExplorer}
-  <nav aria-label="Exploration views" inert={showVenueExplorer}>
+  <nav aria-label="Exploration views" inert={isInitialScreenVisible || showVenueExplorer}>
     <a class="logo" href={basePath} aria-label="Edinburgh Festivals home">
       <img
         src={`${basePath}/img/efi_dlm_logo_black.svg`}
@@ -245,7 +254,7 @@
 <main
   id="main-content"
   class:landing={!showExplorer}
-  inert={showVenueExplorer}
+  inert={isInitialScreenVisible || showVenueExplorer}
   bind:clientHeight={mainHeight}
   bind:clientWidth={mainWidth}
 >
@@ -263,7 +272,7 @@
       {ticketDataStatus}
       {ticketDataError}
       {legendStage}
-      on:ready={handleMapLoaded}
+      on:loadStateChange={handleMapLoadStateChange}
       on:retryFestivalData={fetchFestivalData}
       on:legendNext={() => (legendStage = nextLegendStage(legendStage))}
       on:legendDismiss={() => (legendStage = "hidden")}
@@ -349,6 +358,15 @@
     font-weight: 700;
     text-align: center;
     letter-spacing: -0.05em;
+  }
+
+  .loading-indicator .map-load-error {
+    margin: 0.75rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    letter-spacing: normal;
   }
 
   .loading-bar {

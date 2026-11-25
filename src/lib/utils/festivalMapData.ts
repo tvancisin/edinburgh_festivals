@@ -8,6 +8,20 @@ import type {
 
 export type FestivalYearSelection = "all" | number;
 
+// Explicit source-name variants found in the 2012–2026 CSVs. See the mapping
+// rationale and per-year coverage in docs/festival-map-audit.md.
+const festivalMapNameAliases = new Map<string, string>([
+  ["Fringe", "Edinburgh Festival Fringe"],
+  ["Edinburgh Science Festival", "Edinburgh International Science Festival"],
+  ["Bank of Scotland Imaginate Festival", "Edinburgh International Children's Festival"],
+  ["Imaginate Festival", "Edinburgh International Children's Festival"],
+  ["Edinburgh Jazz Festival", "Edinburgh Jazz and Blues Festival"],
+  ["Edinburgh Jazz & Blues Festival", "Edinburgh Jazz and Blues Festival"],
+  ["Edinburgh Military Tattoo", "Royal Edinburgh Military Tattoo"],
+  ["The Royal Edinburgh Military Tattoo", "Royal Edinburgh Military Tattoo"],
+  ["Edinburgh Arts Festival", "Edinburgh Art Festival"],
+]);
+
 /** Combine all formatted events in file-list and source-row order.
  * Keep repeated records, unknown years, and each event's original raw row.
  * The base datasets and their arrays are never changed.
@@ -36,11 +50,20 @@ export function selectFestivalMapYear(
   return selectedYear === "all" ? events : events.filter((event) => event.year === selectedYear);
 }
 
-/** Group the selected year's events by their exact source festival name.
- * Keep every record, its raw row, and its relative order within its group.
+/** Resolve explicitly listed historical source names to timeline selection
+ * keys. Unlisted names retain exact-name matching, without fuzzy matching.
+ * This changes only the grouping key, never the event or its raw source row.
+ */
+export function resolveFestivalMapName(sourceFestivalName: string): string {
+  return festivalMapNameAliases.get(sourceFestivalName) ?? sourceFestivalName;
+}
+
+/** Group the selected year's events by the resolved timeline selection key.
+ * Keep every record, its original festival name and raw row, and its relative
+ * order within its group, including when historical and current names coexist.
  */
 export function groupFestivalMapEvents(events: FestivalData[]): FestivalDataByFestival {
-  return Object.fromEntries(Array.from(d3.group(events, (event) => event.festival),
+  return Object.fromEntries(Array.from(d3.group(events, (event) => resolveFestivalMapName(event.festival)),
     ([festival, records]) => [festival, { festival, events: records }],
   ));
 }

@@ -2,7 +2,7 @@
 
 ## All-year map data and year selection
 
-Updated November 24, 2026. The map receives the complete formatted base
+Updated November 25, 2026. The map receives the complete formatted base
 collection from `2012.csv` through `2026.csv`, documented in
 [festival-data.md](festival-data.md). All years is the default. The Event year
 filter selects the formatted source Year before festival selection, country
@@ -12,6 +12,13 @@ source rows are retained and counted individually. Country summaries and text
 alternatives include the active event-year scope. Existing country-matching
 rules, counting rules, and fixed opacity bands remain in use. The separate
 Tattoo visitor dataset retains its 2025 scope.
+
+Festival selection explicitly includes the historical source-name variants
+listed in [festival-map-audit.md](festival-map-audit.md) under their corresponding
+arcs. These historical rows contribute
+to the selected year's map and country summaries using the existing counting
+methods. Original festival names and raw rows remain unchanged; see
+[festival-data.md](festival-data.md) for the grouping method.
 
 ## Continent map previews
 

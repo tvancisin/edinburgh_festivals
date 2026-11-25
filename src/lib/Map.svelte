@@ -6,6 +6,7 @@
   import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
   import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
   import "maplibre-gl/dist/maplibre-gl.css";
+  
   import LegendGuide from "./LegendGuide.svelte";
   import type { LegendStage } from "./utils/legendGuide";
   import EventCountryStrip from "./EventCountryStrip.svelte";
@@ -51,6 +52,7 @@
   } from "./utils/mapAltitude";
   import { festivals } from "./utils/festivals.js";
   import { formatFestivalCalendarDate } from "./utils/festivalTimeline";
+  import { observeBaseMapLoad, type BaseMapLoadState } from "./utils/baseMapLoad";
 
   export let baseFestivalDatasets: FestivalDataset[] | undefined;
   export let festivalDataStatus: "loading" | "ready" | "empty" | "error" = "loading";
@@ -63,7 +65,7 @@
   export let legendStage: LegendStage = "hidden";
 
   const dispatch = createEventDispatcher<{
-    ready: void;
+    loadStateChange: BaseMapLoadState;
     retryFestivalData: void;
     legendNext: void;
     legendDismiss: void;
@@ -89,12 +91,18 @@
   let eventMarkerRenderer: L.Canvas | undefined;
   let displayedEvents: FestivalData[] | undefined;
   let eventLocationCount = 0;
+  let baseMapError: string | null = null;
   let cameraAltitude: number | null = null;
   let isLegendVisible = true;
 
   $: circleX = width / 2;
   $: circleY = height / 2;
   $: circleRadius = Math.max(0, Math.min(width / 2 - 27, height / 2 - 57));
+  $: filterRadius = Math.max(0, circleRadius - 12);
+  $: filterWidth = Math.min(128, filterRadius * 1.5);
+  // Inset the top corners along the circle's chord, keeping the whole panel
+  // inside the map even when status text makes it taller than the selector.
+  $: filterVerticalExtent = Math.sqrt(Math.max(0, filterRadius ** 2 - (filterWidth / 2) ** 2));
   $: if (map && width > 0 && height > 0) {
     map.invalidateSize({ animate: false });
   }
@@ -139,7 +147,10 @@
       style: "https://tiles.openfreemap.org/styles/positron",
     });
     baseLayer.addTo(map);
-    baseLayer.getMaplibreMap().once("load", () => dispatch("ready"));
+    const stopObservingBaseMap = observeBaseMapLoad(baseLayer.getMaplibreMap(), (state) => {
+      baseMapError = state.error;
+      dispatch("loadStateChange", state);
+    });
 
     eventMarkerRenderer = L.canvas({ padding: 0.5 }).addTo(map);
     eventMarkerLayer = L.layerGroup().addTo(map);
@@ -159,6 +170,7 @@
     updateCameraAltitude();
 
     return () => {
+      stopObservingBaseMap();
       map?.off("zoomend", updateEventHexBins);
       map?.off("move zoom", updateCameraAltitude);
       eventMarkerLayer?.clearLayers();
@@ -275,9 +287,17 @@
     the event-year filter. Use your
     keyboard, mouse, trackpad, or touch screen to navigate the map.
   </p>
-  <div class="map-filters" inert={legendStage !== "hidden"}>
+  <div
+    class="map-filters"
+    style:top={`${circleY - filterVerticalExtent}px`}
+    style:left={`${circleX}px`}
+    style:width={`${filterWidth}px`}
+    style:max-height={`${filterVerticalExtent * 2}px`}
+    inert={legendStage !== "hidden"}
+  >
     <select
       id="festival-map-year"
+      aria-label="Event year"
       bind:value={selectedYear}
       disabled={festivalDataStatus === "loading" || festivalDataStatus === "error"}
       aria-describedby="festival-year-note"
@@ -287,6 +307,9 @@
         <option value={year}>{year}</option>
       {/each}
     </select>
+    {#if baseMapError}
+      <p class="map-data-status" role="status">{baseMapError}</p>
+    {/if}
     <p id="festival-year-note" class="visually-hidden">
       Filters event locations and event origins. The fixed festival calendar
       and 2025 visitor data remain independent of this filter.
@@ -458,20 +481,10 @@
   .map-filters {
     position: absolute;
     z-index: 3;
-    top: 0.75rem;
-    left: 4rem;
-    width: min(16rem, calc(100% - 8rem));
-    padding: 0.5rem;
-    border: 1px solid #777777;
+    transform: translateX(-50%);
+    padding: 0.2rem;
     border-radius: 0.25rem;
-    background: #f8f7f4;
-  }
-
-  .map-filters label {
-    display: block;
-    margin-bottom: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 700;
+    overflow-y: auto;
   }
 
   .map-filters select,
@@ -480,10 +493,16 @@
     min-height: 2.75rem;
     padding: 0.375rem;
     border: 1px solid #777777;
-    border-radius: 0.125rem;
+    border-radius: 0.2rem;
     background: #ffffff;
     color: #252525;
     font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .map-filters select:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px #006b63;
   }
 
   .map-data-status {

@@ -3,12 +3,14 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import * as d3 from "d3";
+import { festivals } from "../src/lib/utils/festivals.js";
 import {
   combineFestivalMapDatasets,
   describeFestivalMapScope,
   filterFestivalDataWithCoordinates,
   groupFestivalMapEvents,
   listFestivalMapYears,
+  resolveFestivalMapName,
   selectFestivalMapEvents,
   selectFestivalMapYear,
 } from "../src/lib/utils/festivalMapData.ts";
@@ -26,6 +28,34 @@ const b2026 = event("B", 2026, null);
 const a2026 = event("A", 2026);
 const unknownYear = event("A", null);
 const events = Object.freeze([a2012, b2026, a2026, unknownYear, a2012]);
+
+// Independent expected source membership for every configured arc. Keep these
+// literal names separate from the production resolver so omitted aliases fail.
+const sourceNamesByArc = new Map([
+  ["Science", ["Edinburgh International Science Festival", "Edinburgh Science Festival"]],
+  ["Children's", ["Edinburgh International Children's Festival", "Bank of Scotland Imaginate Festival", "Imaginate Festival"]],
+  ["Jazz & Blues", ["Edinburgh Jazz and Blues Festival", "Edinburgh Jazz & Blues Festival", "Edinburgh Jazz Festival"]],
+  ["Fringe", ["Edinburgh Festival Fringe", "Fringe"]],
+  ["International", ["Edinburgh International Festival"]],
+  ["Tattoo", ["Royal Edinburgh Military Tattoo", "The Royal Edinburgh Military Tattoo", "Edinburgh Military Tattoo"]],
+  ["Art", ["Edinburgh Art Festival", "Edinburgh Arts Festival"]],
+  ["Book", ["Edinburgh International Book Festival"]],
+  ["Film", ["Edinburgh International Film Festival"]],
+  ["Storytelling", ["Scottish International Storytelling Festival"]],
+  ["Hogmanay", ["Edinburgh's Hogmanay"]],
+]);
+
+test("explicit historical names resolve to their arcs without absorbing unlisted festivals", () => {
+  assert.equal(sourceNamesByArc.size, festivals.length);
+  for (const festival of festivals) {
+    for (const name of sourceNamesByArc.get(festival.name)) {
+      assert.equal(resolveFestivalMapName(name), festival.dataFestival);
+    }
+  }
+  for (const name of ["Edinburgh Mela", "Edinburgh Mela Festival", "Other Fringe Festival", "", "fringe"]) {
+    assert.equal(resolveFestivalMapName(name), name);
+  }
+});
 
 test("combines datasets in source order without dropping repeated IDs, repeated references, or unknown years", () => {
   const datasets = Object.freeze([
@@ -73,6 +103,26 @@ test("coordinate filtering changes only plotted locations, and summaries retain 
   assert.equal(describeFestivalMapScope("B", 2026), "B, 2026");
 });
 
+test("the Fringe arc matches historical and current source names in either selection order", () => {
+  const historic = event("Fringe", 2012);
+  const current = event("Edinburgh Festival Fringe", 2026);
+  const unlisted = event("Other Fringe Festival", 2012);
+  const records = Object.freeze([historic, current, unlisted, historic]);
+  const arcName = "Edinburgh Festival Fringe";
+  const festivalFirst = selectFestivalMapEvents(records, groupFestivalMapEvents(records), arcName);
+  const yearFirst = selectFestivalMapYear(records, 2012);
+  assert.deepEqual(festivalFirst, [historic, current, historic]);
+  assert.deepEqual(
+    selectFestivalMapYear(festivalFirst, 2012),
+    selectFestivalMapEvents(yearFirst, groupFestivalMapEvents(yearFirst), arcName),
+  );
+  assert.deepEqual(selectFestivalMapYear(festivalFirst, 2012), [historic, historic]);
+  assert.equal(festivalFirst[0], historic);
+  assert.equal(festivalFirst[0].festival, "Fringe");
+  assert.equal(festivalFirst[0].raw.Festival, "Fringe");
+  assert.deepEqual(selectFestivalMapYear(festivalFirst, 2025), []);
+});
+
 test("all 15 local CSVs reach the map without losing records, and per-year groups reconcile to source Year", async () => {
   const source = stripTypeScriptTypes(await readFile(new URL("../src/lib/utils/festivalData.ts", import.meta.url), "utf8"))
     .replaceAll("import.meta.env.BASE_URL", JSON.stringify("/edinburgh_festivals/"))
@@ -96,4 +146,44 @@ test("all 15 local CSVs reach the map without losing records, and per-year group
   for (const dataset of datasets) {
     for (const record of dataset.events) assert.equal(combined[offset++], record);
   }
+
+  const fringeArc = "Edinburgh Festival Fringe";
+  const allFringe = selectFestivalMapEvents(combined, groupFestivalMapEvents(combined), fringeArc);
+  const year2012 = selectFestivalMapYear(combined, 2012);
+  const fringe2012 = selectFestivalMapEvents(year2012, groupFestivalMapEvents(year2012), fringeArc);
+  assert.equal(fringe2012.length, 2782);
+  assert.equal(filterFestivalDataWithCoordinates(fringe2012).length, 2775);
+  assert.deepEqual(selectFestivalMapYear(allFringe, 2012), fringe2012);
+  assert.ok(fringe2012.every((record) => record.festival === "Fringe" && record.raw.Festival === "Fringe"));
+
+  const allGroups = groupFestivalMapEvents(combined);
+  let checkedSelections = 0;
+  const recognizedNames = new Set(Array.from(sourceNamesByArc.values()).flat());
+  assert.deepEqual(
+    Array.from(new Set(combined.map((record) => record.raw.Festival)))
+      .filter((name) => !recognizedNames.has(name)).sort(),
+    ["Edinburgh Mela", "Edinburgh Mela Festival"],
+    "new source names require an explicit mapping or a documented exclusion from the arcs",
+  );
+  for (const festival of festivals) {
+    const sourceNames = sourceNamesByArc.get(festival.name);
+    const festivalFirst = selectFestivalMapEvents(combined, allGroups, festival.dataFestival);
+    for (const year of ["all", ...listFestivalMapYears(combined)]) {
+      const label = `${festival.name}, ${year}`;
+      const yearFirst = selectFestivalMapYear(combined, year);
+      const actual = selectFestivalMapEvents(yearFirst, groupFestivalMapEvents(yearFirst), festival.dataFestival);
+      const expected = combined.filter((record) => sourceNames.includes(record.raw.Festival)
+        && (year === "all" || Number(record.raw.Year) === year));
+      assert.deepEqual(actual, expected, `${label}: source membership and order`);
+      assert.deepEqual(selectFestivalMapYear(festivalFirst, year), actual, `${label}: selection order`);
+      const expectedLocated = expected.filter((record) => record.venue.latitude !== null && record.venue.longitude !== null);
+      assert.deepEqual(filterFestivalDataWithCoordinates(actual), expectedLocated, `${label}: coordinate coverage`);
+      for (let index = 0; index < actual.length; index++) {
+        assert.equal(actual[index], expected[index], `${label}: retain original record`);
+        assert.equal(actual[index].festival, actual[index].raw.Festival, `${label}: retain source festival name`);
+      }
+      checkedSelections++;
+    }
+  }
+  assert.equal(checkedSelections, 176, "11 arcs across 15 source years plus All years");
 });
