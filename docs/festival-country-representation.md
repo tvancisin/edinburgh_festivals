@@ -150,6 +150,21 @@ festival selection; resizing changes geometry, not the count bands. No event
 rows, counting rules, country assignments, or rectangle sizes change. Country
 ordering follows the within-continent count sort described above.
 
+## Top-country connection labels
+
+Added November 26, 2026. Each continent with a positive event-country connection
+shows its highest-count displayed country's name and exact event-record count
+to the right of that country's line endpoint, with the count below the name.
+Labels follow the active year and
+festival selection. Equal highest counts use the first country in the existing
+strip order. Continents without positive connections have no label.
+`countryConnectionLabels.ts` selects from the existing country summaries without
+changing counts, country order, or source rows, and retains the raw catalog row.
+Labels wrap within their half of the measured container on narrow screens. A
+screen-reader list identifies the labeled country and count for each continent;
+the full connection list remains available. Source provenance and the existing
+country counting method are unchanged.
+
 ## Earlier world-map method
 
 The source is the existing `public/data/festivals_2025.csv`, containing 5,544

@@ -70,6 +70,20 @@ Visitors strip and the circle's right edge. Paths use the same opacity and count
 order as the strip, and their width matches the responsive rectangle height.
 The full connection list and exact visitor counts are available to screen readers.
 
+## Top-country connection labels
+
+Added November 26, 2026. Each continent with a positive visitor-country connection
+shows its highest-count displayed country's name and exact visitor count to the
+left of that country's line endpoint, with the count below the name.
+Equal highest counts use the first country
+in the existing strip order. Continents without positive connections have no
+label, and labels follow the same Tattoo-only visibility as the connections.
+`countryConnectionLabels.ts` selects existing country summaries, retaining raw
+catalog rows without changing counts or source data. Labels wrap within their
+half of the measured container on narrow screens. A screen-reader list gives
+the labeled country and count for each continent alongside the full connection
+list. Source provenance and the confirmed visitor definition are unchanged.
+
 ## Continent summaries
 
 Added November 23, 2026. Hovering, focusing, or tapping a continent rectangle

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { calculateLegendGuideLayout, type LegendStage } from "./utils/legendGuide";
+  import {
+    calculateLegendGuideLayout,
+    type LegendStage,
+  } from "./utils/legendGuide";
 
   export let stage: LegendStage = "hidden";
   export let circleX = 0;
@@ -12,25 +15,29 @@
     central: {
       number: 1,
       title: "Edinburgh venues",
-      description: "Explore festival venue locations in Edinburgh. Darker hexagons show more event records in that area.",
+      description:
+        "Explore festival venue locations in Edinburgh. Darker hexagons show more event records in that area.",
       nextLabel: "Show the festival timeline: step 2 of 4",
     },
     timeline: {
       number: 2,
       title: "Festival calendar",
-      description: "A fixed festival calendar. Each arc marks configured month and day dates and filters events by festival. The calendar stays the same when you change the event year.",
+      description:
+        "Each arc marks the time period when the festival takes place. Clicking the arc filters to data to the particular festival.",
       nextLabel: "Show event origins: step 3 of 4",
     },
     events: {
       number: 3,
       title: "Event origins",
-      description: "Countries associated with events, grouped by continent. Each dark segment marks one represented country; longer black lines show more event records.",
+      description:
+        "Countries associated with events, grouped by continent. Each dark segment marks one represented country; longer black lines show more event records.",
       nextLabel: "Show visitor origins: step 4 of 4",
     },
     tickets: {
       number: 4,
       title: "Visitor origins",
-      description: "Tattoo visitor countries, grouped by continent. Each dark segment marks one represented country; longer black lines show more visitors.",
+      description:
+        "Tattoo visitor countries, grouped by continent. Each dark segment marks one represented country; longer black lines show more visitors.",
       nextLabel: "Finish the visualization guide",
     },
   };
@@ -41,13 +48,18 @@
 
   $: step = stage === "hidden" ? null : steps[stage];
   $: layout = calculateLegendGuideLayout(
-    stage, width, height, circleX, circleY, circleRadius, cardHeight,
+    stage,
+    width,
+    height,
+    circleX,
+    circleY,
+    circleRadius,
+    cardHeight,
   );
 
   function focusNext(button: HTMLButtonElement) {
     button.focus({ preventScroll: true });
   }
-
 </script>
 
 <div
@@ -79,7 +91,8 @@
           use:focusNext
           aria-label={step.nextLabel}
           aria-describedby="legend-guide-description"
-          on:click={() => stage === "tickets" ? dispatch("dismiss") : dispatch("next")}
+          on:click={() =>
+            stage === "tickets" ? dispatch("dismiss") : dispatch("next")}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="m9 5 7 7-7 7" />
@@ -171,5 +184,4 @@
     stroke-linejoin: round;
     stroke-width: 2;
   }
-
 </style>

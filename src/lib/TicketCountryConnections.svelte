@@ -5,6 +5,8 @@
     type TicketCountryRepresentation,
   } from "./utils/ticketCountries";
   import { createTicketCountryConnections } from "./utils/ticketCountryConnections";
+  import { createVisitorCountrySummaries } from "./utils/countrySummary";
+  import { createCountryConnectionLabels } from "./utils/countryConnectionLabels";
 
   export let data: CountryStripData | undefined;
   export let representation: TicketCountryRepresentation | undefined;
@@ -22,6 +24,9 @@
     height,
     circleRadius,
   );
+  $: labels = createCountryConnectionLabels(
+    createVisitorCountrySummaries(countries, representation), connections, "right", width,
+  );
 </script>
 
 <div
@@ -37,6 +42,18 @@
       />
     {/each}
   </svg>
+
+  {#each labels as label (label.continent)}
+    <div
+      class="country-label"
+      style:right={`${width - label.labelX}px`}
+      style:top={`${label.labelY - 7.5}px`}
+      style:max-width={`${label.availableWidth}px`}
+      aria-hidden="true"
+    >
+      {label.countryName}<span>{label.countNumberLabel}</span>
+    </div>
+  {/each}
 
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">
     {#if status === "loading"}
@@ -56,7 +73,15 @@
         Connections are solid black. Line length is proportional to visitors from
         that country; the longest stops midway between the Visitors strip and the
         circle edge. Line width matches the country rectangle height.
+        Labels to the left of each continent's longest line show its country
+        and count. Ties use the first country in strip order.
       </p>
+      <ul aria-label="Highest visitor counts by continent">
+        {#each labels as label (label.continent)}
+          <li>{label.continent}: {label.countryName}, {label.countLabel}</li>
+        {/each}
+      </ul>
+      <p>Connected countries and exact counts:</p>
       <ul>
         {#each connections as connection (connection.countryKey)}
           <li>{connection.countryName}: {connection.purchaseRecordCountLabel}</li>
@@ -81,6 +106,22 @@
   path {
     fill: none;
     stroke: #000;
+  }
+
+  .country-label {
+    position: absolute;
+    color: #252525;
+    font-size: 12px;
+    line-height: 15px;
+    text-align: right;
+    overflow-wrap: anywhere;
+    background: #f8f7f4;
+  }
+
+  .country-label span {
+    display: block;
+    white-space: nowrap;
+    font-weight: 700;
   }
 
   .visually-hidden {

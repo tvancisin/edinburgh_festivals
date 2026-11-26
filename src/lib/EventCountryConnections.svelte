@@ -3,6 +3,8 @@
   import type { CountryRepresentation } from "./utils/festivalCountries";
   import { createEventCountryStrip } from "./utils/eventCountryStrip";
   import { createEventCountryConnections } from "./utils/eventCountryConnections";
+  import { createEventCountrySummaries } from "./utils/countrySummary";
+  import { createCountryConnectionLabels } from "./utils/countryConnectionLabels";
 
   export let data: CountryStripData | undefined;
   export let representation: CountryRepresentation | undefined;
@@ -14,6 +16,9 @@
 
   $: countries = createEventCountryStrip(data, representation, height);
   $: connections = createEventCountryConnections(countries, width, height, circleRadius);
+  $: labels = createCountryConnectionLabels(
+    createEventCountrySummaries(countries), connections, "left", width,
+  );
 </script>
 
 <div
@@ -29,6 +34,18 @@
       />
     {/each}
   </svg>
+
+  {#each labels as label (label.continent)}
+    <div
+      class="country-label"
+      style:left={`${label.labelX}px`}
+      style:top={`${label.labelY - 7.5}px`}
+      style:max-width={`${label.availableWidth}px`}
+      aria-hidden="true"
+    >
+      {label.countryName}<span>{label.countNumberLabel}</span>
+    </div>
+  {/each}
 
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">
     {#if !data || !representation}
@@ -46,6 +63,15 @@
         Line length is proportional to related event records; the longest line
         stops midway between the Events strip and the circle edge. Line width
         matches the country rectangle height.
+        Labels to the right of each continent's longest line show its country
+        and count. Ties use the first country in strip order.
+      </p>
+      <ul aria-label="Highest event-record counts by continent">
+        {#each labels as label (label.continent)}
+          <li>{label.continent}: {label.countryName}, {label.countLabel}</li>
+        {/each}
+      </ul>
+      <p>
         Connected countries and exact counts:
       </p>
       <ul>
@@ -72,6 +98,21 @@
   path {
     fill: none;
     stroke: #000;
+  }
+
+  .country-label {
+    position: absolute;
+    color: #252525;
+    font-size: 12px;
+    line-height: 15px;
+    overflow-wrap: anywhere;
+    background: #f8f7f4;
+  }
+
+  .country-label span {
+    display: block;
+    white-space: nowrap;
+    font-weight: 700;
   }
 
   .visually-hidden {
